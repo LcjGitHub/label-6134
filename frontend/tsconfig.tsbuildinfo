@@ -1,0 +1,1 @@
+{"root":["./src/main.ts","./src/vite-env.d.ts","./src/api/gift.ts","./src/types/gift.ts","./src/app.vue","./src/components/giftformmodal.vue","./src/components/giftlist.vue"],"version":"5.8.3"}
