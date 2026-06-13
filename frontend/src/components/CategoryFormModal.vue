@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useMessage } from 'naive-ui'
 import type { FormInst, FormRules } from 'naive-ui'
 import { createCategory, updateCategory } from '../api/category'
 import type { Category, CategoryFormData } from '../types/category'
@@ -13,6 +14,8 @@ const emit = defineEmits<{
   'update:show': [value: boolean]
   saved: []
 }>()
+
+const message = useMessage()
 
 const formRef = ref<FormInst | null>(null)
 const submitting = ref(false)
@@ -61,15 +64,24 @@ function handleClose(): void {
 }
 
 async function handleSubmit(): Promise<void> {
-  await formRef.value?.validate()
+  try {
+    await formRef.value?.validate()
+  } catch {
+    return
+  }
   submitting.value = true
   try {
     if (isEdit.value && props.category) {
       await updateCategory(props.category.id, formModel.value)
+      message.success('类别更新成功')
     } else {
       await createCategory(formModel.value)
+      message.success('类别创建成功')
     }
     emit('saved')
+  } catch (e: any) {
+    const msg = e?.response?.data?.error || '提交失败，请稍后重试'
+    message.error(msg)
   } finally {
     submitting.value = false
   }

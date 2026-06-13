@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { format } from 'date-fns'
-import { useAsyncState } from '@vueuse/core'
+import { useMessage } from 'naive-ui'
 import type { FormInst, FormRules, SelectOption } from 'naive-ui'
 import { createGift, updateGift } from '../api/gift'
 import { fetchCategories } from '../api/category'
+import type { Category } from '../types/category'
 import type { Gift, GiftFormData } from '../types/gift'
 
 const props = defineProps<{
@@ -17,12 +18,14 @@ const emit = defineEmits<{
   saved: []
 }>()
 
+const message = useMessage()
+
 const formRef = ref<FormInst | null>(null)
 const submitting = ref(false)
+const categories = ref<Category[]>([])
+const categoriesLoading = ref(false)
 
 const isEdit = computed(() => props.gift !== null)
-
-const { state: categories } = useAsyncState(fetchCategories, [])
 
 const categoryOptions = computed<SelectOption[]>(() =>
   categories.value.map((c) => ({
@@ -49,18 +52,31 @@ const rules: FormRules = {
 
 const modalTitle = computed(() => (isEdit.value ? '编辑赠送记录' : '新增赠送记录'))
 
+async function loadCategories(): Promise<void> {
+  categoriesLoading.value = true
+  try {
+    categories.value = await fetchCategories()
+  } catch (e: any) {
+    const msg = e?.response?.data?.error || '网络异常，类别列表加载失败'
+    message.error(msg)
+  } finally {
+    categoriesLoading.value = false
+  }
+}
+
 watch(
-  () => [props.show, props.gift] as const,
-  ([visible, gift]) => {
+  () => props.show,
+  async (visible) => {
     if (!visible) return
-    if (gift) {
+    await loadCategories()
+    if (props.gift) {
       formModel.value = {
-        item_name: gift.item_name,
-        description: gift.description,
-        gift_date: gift.gift_date,
-        recipient_nickname: gift.recipient_nickname,
-        is_taken: gift.is_taken,
-        category_id: gift.category_id,
+        item_name: props.gift.item_name,
+        description: props.gift.description,
+        gift_date: props.gift.gift_date,
+        recipient_nickname: props.gift.recipient_nickname,
+        is_taken: props.gift.is_taken,
+        category_id: props.gift.category_id,
       }
     } else {
       formModel.value = defaultForm()
@@ -74,7 +90,11 @@ function handleClose(): void {
 }
 
 async function handleSubmit(): Promise<void> {
-  await formRef.value?.validate()
+  try {
+    await formRef.value?.validate()
+  } catch {
+    return
+  }
   submitting.value = true
   try {
     if (isEdit.value && props.gift) {
@@ -83,6 +103,10 @@ async function handleSubmit(): Promise<void> {
       await createGift(formModel.value)
     }
     emit('saved')
+    message.success(isEdit.value ? '记录更新成功' : '记录创建成功')
+  } catch (e: any) {
+    const msg = e?.response?.data?.error || '提交失败，请稍后重试'
+    message.error(msg)
   } finally {
     submitting.value = false
   }
@@ -114,6 +138,7 @@ async function handleSubmit(): Promise<void> {
         <n-select
           v-model:value="formModel.category_id"
           :options="categoryOptions"
+          :loading="categoriesLoading"
           placeholder="请选择类别"
           clearable
         />
