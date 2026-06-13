@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, h, onMounted } from 'vue'
+import { computed, h, onMounted, ref } from 'vue'
 import { useAsyncState } from '@vueuse/core'
 import { format, parseISO } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import type { DataTableColumns } from 'naive-ui'
-import { NButton, useDialog } from 'naive-ui'
+import { NButton, NDescriptions, NDescriptionsItem, NModal, useDialog } from 'naive-ui'
 import { deleteGift, fetchGifts } from '../api/gift'
 import type { Gift } from '../types/gift'
 
@@ -22,12 +22,20 @@ const {
   execute: reload,
 } = useAsyncState(fetchGifts, [], { immediate: false })
 
+const detailVisible = ref(false)
+const currentGift = ref<Gift | null>(null)
+
 function formatGiftDate(value: string): string {
   try {
     return format(parseISO(value), 'yyyy年M月d日', { locale: zhCN })
   } catch {
     return value
   }
+}
+
+function showDetail(gift: Gift): void {
+  currentGift.value = gift
+  detailVisible.value = true
 }
 
 const columns = computed<DataTableColumns<Gift>>(() => [
@@ -48,6 +56,7 @@ const columns = computed<DataTableColumns<Gift>>(() => [
     width: 130,
     render: (row) => formatGiftDate(row.gift_date),
   },
+  { title: '赠送人昵称', key: 'donor_nickname', width: 130, ellipsis: { tooltip: true } },
   { title: '接收方昵称', key: 'recipient_nickname', width: 120 },
   {
     title: '是否已取走',
@@ -123,7 +132,51 @@ defineExpose({ reload })
       striped
       size="small"
       :pagination="{ pageSize: 10 }"
+      :row-props="(row: Gift) => ({
+        onClick: () => showDetail(row),
+        style: 'cursor: pointer;',
+      })"
     />
+
+    <n-modal
+      v-model:show="detailVisible"
+      preset="card"
+      title="赠送记录详情"
+      style="width: 560px"
+      :mask-closable="true"
+    >
+      <n-descriptions v-if="currentGift" :column="1" label-placement="left" bordered label-style="width: 120px">
+        <n-descriptions-item label="物品名">
+          {{ currentGift.item_name }}
+        </n-descriptions-item>
+        <n-descriptions-item label="物品类别">
+          {{ currentGift.category_name || '未分类' }}
+        </n-descriptions-item>
+        <n-descriptions-item label="描述">
+          {{ currentGift.description || '（无）' }}
+        </n-descriptions-item>
+        <n-descriptions-item label="赠送日期">
+          {{ formatGiftDate(currentGift.gift_date) }}
+        </n-descriptions-item>
+        <n-descriptions-item label="赠送人昵称">
+          {{ currentGift.donor_nickname || '（未填写）' }}
+        </n-descriptions-item>
+        <n-descriptions-item label="联系电话">
+          {{ currentGift.donor_phone || '（未填写）' }}
+        </n-descriptions-item>
+        <n-descriptions-item label="接收方昵称">
+          {{ currentGift.recipient_nickname || '（未填写）' }}
+        </n-descriptions-item>
+        <n-descriptions-item label="是否已取走">
+          {{ currentGift.is_taken ? '已取走' : '待取走' }}
+        </n-descriptions-item>
+      </n-descriptions>
+      <template #footer>
+        <div class="detail-footer">
+          <n-button type="primary" @click="detailVisible = false">关闭</n-button>
+        </div>
+      </template>
+    </n-modal>
   </n-spin>
 </template>
 
@@ -158,5 +211,10 @@ defineExpose({ reload })
 :deep(.text-muted) {
   color: #999;
   font-size: 12px;
+}
+
+.detail-footer {
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

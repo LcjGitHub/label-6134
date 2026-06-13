@@ -7,6 +7,8 @@ export interface Gift {
   is_taken: boolean
   category_id: number | null
   category_name: string | null
+  donor_nickname: string
+  donor_phone: string
 }
 
 export interface GiftFormData {
@@ -16,6 +18,8 @@ export interface GiftFormData {
   recipient_nickname: string
   is_taken: boolean
   category_id: number | null
+  donor_nickname: string
+  donor_phone: string
 }
 
 export interface MonthlyStat {

@@ -41,6 +41,8 @@ const defaultForm = (): GiftFormData => ({
   recipient_nickname: '',
   is_taken: false,
   category_id: null,
+  donor_nickname: '',
+  donor_phone: '',
 })
 
 const formModel = ref<GiftFormData>(defaultForm())
@@ -48,6 +50,18 @@ const formModel = ref<GiftFormData>(defaultForm())
 const rules: FormRules = {
   item_name: [{ required: true, message: '请输入物品名', trigger: ['blur', 'input'] }],
   gift_date: [{ required: true, message: '请选择赠送日期', trigger: ['blur', 'change'] }],
+  donor_phone: [
+    {
+      validator: (_rule, value) => {
+        if (!value) return true
+        if (!/^\d{11}$/.test(value)) {
+          return new Error('联系电话必须为11位数字')
+        }
+        return true
+      },
+      trigger: ['blur', 'input'],
+    },
+  ],
 }
 
 const modalTitle = computed(() => (isEdit.value ? '编辑赠送记录' : '新增赠送记录'))
@@ -77,6 +91,8 @@ watch(
         recipient_nickname: props.gift.recipient_nickname,
         is_taken: props.gift.is_taken,
         category_id: props.gift.category_id,
+        donor_nickname: props.gift.donor_nickname,
+        donor_phone: props.gift.donor_phone,
       }
     } else {
       formModel.value = defaultForm()
@@ -167,6 +183,21 @@ async function handleSubmit(): Promise<void> {
         <n-input
           v-model:value="formModel.recipient_nickname"
           placeholder="领取人社区昵称"
+        />
+      </n-form-item>
+
+      <n-form-item label="赠送人昵称" path="donor_nickname">
+        <n-input
+          v-model:value="formModel.donor_nickname"
+          placeholder="赠送人社区昵称"
+        />
+      </n-form-item>
+
+      <n-form-item label="联系电话" path="donor_phone">
+        <n-input
+          v-model:value="formModel.donor_phone"
+          placeholder="11位手机号码"
+          maxlength="11"
         />
       </n-form-item>
 
