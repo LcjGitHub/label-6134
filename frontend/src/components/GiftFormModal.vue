@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { format } from 'date-fns'
-import type { FormInst, FormRules } from 'naive-ui'
+import { useAsyncState } from '@vueuse/core'
+import type { FormInst, FormRules, SelectOption } from 'naive-ui'
 import { createGift, updateGift } from '../api/gift'
+import { fetchCategories } from '../api/category'
 import type { Gift, GiftFormData } from '../types/gift'
 
 const props = defineProps<{
@@ -20,12 +22,22 @@ const submitting = ref(false)
 
 const isEdit = computed(() => props.gift !== null)
 
+const { state: categories } = useAsyncState(fetchCategories, [])
+
+const categoryOptions = computed<SelectOption[]>(() =>
+  categories.value.map((c) => ({
+    label: c.name,
+    value: c.id,
+  })),
+)
+
 const defaultForm = (): GiftFormData => ({
   item_name: '',
   description: '',
   gift_date: format(new Date(), 'yyyy-MM-dd'),
   recipient_nickname: '',
   is_taken: false,
+  category_id: null,
 })
 
 const formModel = ref<GiftFormData>(defaultForm())
@@ -35,10 +47,8 @@ const rules: FormRules = {
   gift_date: [{ required: true, message: '请选择赠送日期', trigger: ['blur', 'change'] }],
 }
 
-/** 弹窗标题 */
 const modalTitle = computed(() => (isEdit.value ? '编辑赠送记录' : '新增赠送记录'))
 
-/** 根据传入记录同步表单 */
 watch(
   () => [props.show, props.gift] as const,
   ([visible, gift]) => {
@@ -50,6 +60,7 @@ watch(
         gift_date: gift.gift_date,
         recipient_nickname: gift.recipient_nickname,
         is_taken: gift.is_taken,
+        category_id: gift.category_id,
       }
     } else {
       formModel.value = defaultForm()
@@ -58,12 +69,10 @@ watch(
   { immediate: true },
 )
 
-/** 关闭弹窗 */
 function handleClose(): void {
   emit('update:show', false)
 }
 
-/** 提交表单 */
 async function handleSubmit(): Promise<void> {
   await formRef.value?.validate()
   submitting.value = true
@@ -99,6 +108,15 @@ async function handleSubmit(): Promise<void> {
     >
       <n-form-item label="物品名" path="item_name">
         <n-input v-model:value="formModel.item_name" placeholder="例如：儿童绘本一套" />
+      </n-form-item>
+
+      <n-form-item label="物品类别" path="category_id">
+        <n-select
+          v-model:value="formModel.category_id"
+          :options="categoryOptions"
+          placeholder="请选择类别"
+          clearable
+        />
       </n-form-item>
 
       <n-form-item label="描述" path="description">

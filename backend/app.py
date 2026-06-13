@@ -16,14 +16,20 @@ CORS(app)
 
 
 def get_db() -> sqlite3.Connection:
-    """获取 SQLite 连接，并启用 Row 工厂便于字典访问."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def row_to_dict(row: sqlite3.Row) -> dict:
-    """将 SQLite Row 转为 API 响应字典."""
+def row_to_category(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "sort_order": row["sort_order"],
+    }
+
+
+def row_to_gift(row: sqlite3.Row) -> dict:
     return {
         "id": row["id"],
         "item_name": row["item_name"],
@@ -31,14 +37,25 @@ def row_to_dict(row: sqlite3.Row) -> dict:
         "gift_date": row["gift_date"],
         "recipient_nickname": row["recipient_nickname"],
         "is_taken": bool(row["is_taken"]),
+        "category_id": row["category_id"],
+        "category_name": row["category_name"],
     }
 
 
 def init_db() -> None:
-    """初始化数据库表结构并写入 seed 数据."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     conn = get_db()
     try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0
+            )
+            """
+        )
+
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS gifts (
@@ -47,61 +64,210 @@ def init_db() -> None:
                 description TEXT NOT NULL DEFAULT '',
                 gift_date TEXT NOT NULL,
                 recipient_nickname TEXT NOT NULL DEFAULT '',
-                is_taken INTEGER NOT NULL DEFAULT 0
+                is_taken INTEGER NOT NULL DEFAULT 0,
+                category_id INTEGER DEFAULT NULL,
+                FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
             )
             """
         )
-        count = conn.execute("SELECT COUNT(*) FROM gifts").fetchone()[0]
-        if count == 0:
-            seed_rows = [
-                ("儿童绘本一套", "3-6 岁适用，共 12 本，品相良好", "2026-03-01", "小明妈妈", 1),
-                ("电热水壶", "1.5L，使用约 1 年，功能正常", "2026-03-05", "邻居阿华", 0),
-                ("折叠晾衣架", "可收纳，适合小户型阳台", "2026-03-08", "302 室小李", 1),
-                ("冬季厚棉被", "8 斤重，已清洗晾晒", "2026-03-10", "社区志愿者", 0),
-                ("闲置键盘", "机械键盘青轴，部分键帽有磨损", "2026-03-12", "程序员小王", 0),
+
+        cat_count = conn.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
+        if cat_count == 0:
+            seed_categories = [
+                ("图书文具", 1),
+                ("家居用品", 2),
+                ("服饰衣物", 3),
+                ("数码电子", 4),
+                ("母婴玩具", 5),
+            ]
+            conn.executemany(
+                "INSERT INTO categories (name, sort_order) VALUES (?, ?)",
+                seed_categories,
+            )
+            conn.commit()
+
+        cat_rows = conn.execute(
+            "SELECT id, name FROM categories ORDER BY sort_order, id"
+        ).fetchall()
+        cat_map = {r["name"]: r["id"] for r in cat_rows}
+
+        gift_count = conn.execute("SELECT COUNT(*) FROM gifts").fetchone()[0]
+        if gift_count == 0:
+            seed_gifts = [
+                ("儿童绘本一套", "3-6 岁适用，共 12 本，品相良好", "2026-03-01", "小明妈妈", 1, cat_map.get("图书文具")),
+                ("电热水壶", "1.5L，使用约 1 年，功能正常", "2026-03-05", "邻居阿华", 0, cat_map.get("家居用品")),
+                ("折叠晾衣架", "可收纳，适合小户型阳台", "2026-03-08", "302 室小李", 1, cat_map.get("家居用品")),
+                ("冬季厚棉被", "8 斤重，已清洗晾晒", "2026-03-10", "社区志愿者", 0, cat_map.get("家居用品")),
+                ("闲置键盘", "机械键盘青轴，部分键帽有磨损", "2026-03-12", "程序员小王", 0, cat_map.get("数码电子")),
             ]
             conn.executemany(
                 """
                 INSERT INTO gifts
-                    (item_name, description, gift_date, recipient_nickname, is_taken)
-                VALUES (?, ?, ?, ?, ?)
+                    (item_name, description, gift_date, recipient_nickname, is_taken, category_id)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                seed_rows,
+                seed_gifts,
             )
         conn.commit()
     finally:
         conn.close()
 
 
-@app.route("/api/gifts", methods=["GET"])
-def list_gifts():
-    """获取全部赠送记录."""
+# ----------------------------- Categories API -----------------------------
+
+@app.route("/api/categories", methods=["GET"])
+def list_categories():
     conn = get_db()
     try:
         rows = conn.execute(
-            "SELECT * FROM gifts ORDER BY gift_date DESC, id DESC"
+            "SELECT * FROM categories ORDER BY sort_order, id"
         ).fetchall()
-        return jsonify([row_to_dict(r) for r in rows])
+        return jsonify([row_to_category(r) for r in rows])
+    finally:
+        conn.close()
+
+
+@app.route("/api/categories/<int:cat_id>", methods=["GET"])
+def get_category(cat_id: int):
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT * FROM categories WHERE id = ?", (cat_id,)).fetchone()
+        if row is None:
+            return jsonify({"error": "类别不存在"}), 404
+        return jsonify(row_to_category(row))
+    finally:
+        conn.close()
+
+
+@app.route("/api/categories", methods=["POST"])
+def create_category():
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "类别名称不能为空"}), 400
+    sort_order = int(data.get("sort_order", 0) or 0)
+
+    conn = get_db()
+    try:
+        existing = conn.execute(
+            "SELECT id FROM categories WHERE name = ?", (name,)
+        ).fetchone()
+        if existing is not None:
+            return jsonify({"error": "类别名称已存在"}), 400
+
+        cursor = conn.execute(
+            "INSERT INTO categories (name, sort_order) VALUES (?, ?)",
+            (name, sort_order),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM categories WHERE id = ?", (cursor.lastrowid,)
+        ).fetchone()
+        return jsonify(row_to_category(row)), 201
+    finally:
+        conn.close()
+
+
+@app.route("/api/categories/<int:cat_id>", methods=["PUT"])
+def update_category(cat_id: int):
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "类别名称不能为空"}), 400
+    sort_order = int(data.get("sort_order", 0) or 0)
+
+    conn = get_db()
+    try:
+        existing = conn.execute(
+            "SELECT id FROM categories WHERE id = ?", (cat_id,)
+        ).fetchone()
+        if existing is None:
+            return jsonify({"error": "类别不存在"}), 404
+
+        duplicate = conn.execute(
+            "SELECT id FROM categories WHERE name = ? AND id != ?",
+            (name, cat_id),
+        ).fetchone()
+        if duplicate is not None:
+            return jsonify({"error": "类别名称已存在"}), 400
+
+        conn.execute(
+            "UPDATE categories SET name = ?, sort_order = ? WHERE id = ?",
+            (name, sort_order, cat_id),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM categories WHERE id = ?", (cat_id,)
+        ).fetchone()
+        return jsonify(row_to_category(row))
+    finally:
+        conn.close()
+
+
+@app.route("/api/categories/<int:cat_id>", methods=["DELETE"])
+def delete_category(cat_id: int):
+    conn = get_db()
+    try:
+        existing = conn.execute(
+            "SELECT id FROM categories WHERE id = ?", (cat_id,)
+        ).fetchone()
+        if existing is None:
+            return jsonify({"error": "类别不存在"}), 404
+
+        used_count = conn.execute(
+            "SELECT COUNT(*) FROM gifts WHERE category_id = ?", (cat_id,)
+        ).fetchone()[0]
+        if used_count > 0:
+            return jsonify({"error": f"该类别下还有 {used_count} 条赠送记录，无法删除"}), 400
+
+        conn.execute("DELETE FROM categories WHERE id = ?", (cat_id,))
+        conn.commit()
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
+# ----------------------------- Gifts API -----------------------------
+
+@app.route("/api/gifts", methods=["GET"])
+def list_gifts():
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            """
+            SELECT g.*, c.name AS category_name
+            FROM gifts g
+            LEFT JOIN categories c ON g.category_id = c.id
+            ORDER BY g.gift_date DESC, g.id DESC
+            """
+        ).fetchall()
+        return jsonify([row_to_gift(r) for r in rows])
     finally:
         conn.close()
 
 
 @app.route("/api/gifts/<int:gift_id>", methods=["GET"])
 def get_gift(gift_id: int):
-    """获取单条赠送记录."""
     conn = get_db()
     try:
-        row = conn.execute("SELECT * FROM gifts WHERE id = ?", (gift_id,)).fetchone()
+        row = conn.execute(
+            """
+            SELECT g.*, c.name AS category_name
+            FROM gifts g
+            LEFT JOIN categories c ON g.category_id = c.id
+            WHERE g.id = ?
+            """,
+            (gift_id,),
+        ).fetchone()
         if row is None:
             return jsonify({"error": "记录不存在"}), 404
-        return jsonify(row_to_dict(row))
+        return jsonify(row_to_gift(row))
     finally:
         conn.close()
 
 
 @app.route("/api/gifts", methods=["POST"])
 def create_gift():
-    """新建赠送记录."""
     data = request.get_json(silent=True) or {}
     item_name = (data.get("item_name") or "").strip()
     if not item_name:
@@ -111,29 +277,47 @@ def create_gift():
     description = (data.get("description") or "").strip()
     recipient_nickname = (data.get("recipient_nickname") or "").strip()
     is_taken = 1 if data.get("is_taken") else 0
+    category_id = data.get("category_id")
+    if category_id is not None:
+        try:
+            category_id = int(category_id)
+        except (TypeError, ValueError):
+            category_id = None
 
     conn = get_db()
     try:
+        if category_id is not None:
+            cat_exists = conn.execute(
+                "SELECT id FROM categories WHERE id = ?", (category_id,)
+            ).fetchone()
+            if cat_exists is None:
+                category_id = None
+
         cursor = conn.execute(
             """
             INSERT INTO gifts
-                (item_name, description, gift_date, recipient_nickname, is_taken)
-            VALUES (?, ?, ?, ?, ?)
+                (item_name, description, gift_date, recipient_nickname, is_taken, category_id)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (item_name, description, gift_date, recipient_nickname, is_taken),
+            (item_name, description, gift_date, recipient_nickname, is_taken, category_id),
         )
         conn.commit()
         row = conn.execute(
-            "SELECT * FROM gifts WHERE id = ?", (cursor.lastrowid,)
+            """
+            SELECT g.*, c.name AS category_name
+            FROM gifts g
+            LEFT JOIN categories c ON g.category_id = c.id
+            WHERE g.id = ?
+            """,
+            (cursor.lastrowid,),
         ).fetchone()
-        return jsonify(row_to_dict(row)), 201
+        return jsonify(row_to_gift(row)), 201
     finally:
         conn.close()
 
 
 @app.route("/api/gifts/<int:gift_id>", methods=["PUT"])
 def update_gift(gift_id: int):
-    """更新赠送记录."""
     data = request.get_json(silent=True) or {}
     item_name = (data.get("item_name") or "").strip()
     if not item_name:
@@ -143,6 +327,12 @@ def update_gift(gift_id: int):
     description = (data.get("description") or "").strip()
     recipient_nickname = (data.get("recipient_nickname") or "").strip()
     is_taken = 1 if data.get("is_taken") else 0
+    category_id = data.get("category_id")
+    if category_id is not None:
+        try:
+            category_id = int(category_id)
+        except (TypeError, ValueError):
+            category_id = None
 
     conn = get_db()
     try:
@@ -152,6 +342,13 @@ def update_gift(gift_id: int):
         if existing is None:
             return jsonify({"error": "记录不存在"}), 404
 
+        if category_id is not None:
+            cat_exists = conn.execute(
+                "SELECT id FROM categories WHERE id = ?", (category_id,)
+            ).fetchone()
+            if cat_exists is None:
+                category_id = None
+
         conn.execute(
             """
             UPDATE gifts SET
@@ -159,21 +356,29 @@ def update_gift(gift_id: int):
                 description = ?,
                 gift_date = ?,
                 recipient_nickname = ?,
-                is_taken = ?
+                is_taken = ?,
+                category_id = ?
             WHERE id = ?
             """,
-            (item_name, description, gift_date, recipient_nickname, is_taken, gift_id),
+            (item_name, description, gift_date, recipient_nickname, is_taken, category_id, gift_id),
         )
         conn.commit()
-        row = conn.execute("SELECT * FROM gifts WHERE id = ?", (gift_id,)).fetchone()
-        return jsonify(row_to_dict(row))
+        row = conn.execute(
+            """
+            SELECT g.*, c.name AS category_name
+            FROM gifts g
+            LEFT JOIN categories c ON g.category_id = c.id
+            WHERE g.id = ?
+            """,
+            (gift_id,),
+        ).fetchone()
+        return jsonify(row_to_gift(row))
     finally:
         conn.close()
 
 
 @app.route("/api/gifts/<int:gift_id>", methods=["DELETE"])
 def delete_gift(gift_id: int):
-    """删除赠送记录."""
     conn = get_db()
     try:
         existing = conn.execute(
@@ -191,7 +396,6 @@ def delete_gift(gift_id: int):
 
 @app.route("/api/health", methods=["GET"])
 def health():
-    """健康检查."""
     return jsonify({"status": "ok"})
 
 

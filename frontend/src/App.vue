@@ -3,37 +3,65 @@ import { ref } from 'vue'
 import { useMessage } from 'naive-ui'
 import GiftList from './components/GiftList.vue'
 import GiftFormModal from './components/GiftFormModal.vue'
+import CategoryList from './components/CategoryList.vue'
+import CategoryFormModal from './components/CategoryFormModal.vue'
 import type { Gift } from './types/gift'
+import type { Category } from './types/category'
 
 const message = useMessage()
-const listRef = ref<InstanceType<typeof GiftList> | null>(null)
-const showModal = ref(false)
+
+const activeTab = ref<'gifts' | 'categories'>('gifts')
+
+const giftListRef = ref<InstanceType<typeof GiftList> | null>(null)
+const showGiftModal = ref(false)
 const editingGift = ref<Gift | null>(null)
 
-/** 打开新建弹窗 */
-function handleCreate(): void {
+const categoryListRef = ref<InstanceType<typeof CategoryList> | null>(null)
+const showCategoryModal = ref(false)
+const editingCategory = ref<Category | null>(null)
+
+function handleCreateGift(): void {
   editingGift.value = null
-  showModal.value = true
+  showGiftModal.value = true
 }
 
-/** 打开编辑弹窗 */
-function handleEdit(gift: Gift): void {
+function handleEditGift(gift: Gift): void {
   editingGift.value = gift
-  showModal.value = true
+  showGiftModal.value = true
 }
 
-/** 表单提交成功后刷新列表 */
-function handleSaved(): void {
+function handleGiftSaved(): void {
   const isEdit = editingGift.value !== null
-  showModal.value = false
-  listRef.value?.reload()
+  showGiftModal.value = false
+  giftListRef.value?.reload()
   message.success(isEdit ? '记录已更新' : '记录已创建')
 }
 
-/** 删除成功后刷新列表 */
-function handleDeleted(): void {
-  listRef.value?.reload()
+function handleGiftDeleted(): void {
+  giftListRef.value?.reload()
   message.success('记录已删除')
+}
+
+function handleCreateCategory(): void {
+  editingCategory.value = null
+  showCategoryModal.value = true
+}
+
+function handleEditCategory(category: Category): void {
+  editingCategory.value = category
+  showCategoryModal.value = true
+}
+
+function handleCategorySaved(): void {
+  const isEdit = editingCategory.value !== null
+  showCategoryModal.value = false
+  categoryListRef.value?.reload()
+  message.success(isEdit ? '类别已更新' : '类别已创建')
+}
+
+function handleCategoryDeleted(): void {
+  categoryListRef.value?.reload()
+  message.success('类别已删除')
 }
 </script>
 
@@ -44,17 +72,51 @@ function handleDeleted(): void {
         <h1>社区旧物赠送流转记录</h1>
         <p class="subtitle">记录社区内旧物赠送与领取情况</p>
       </div>
-      <n-button type="primary" @click="handleCreate">新增记录</n-button>
+      <n-button
+        v-if="activeTab === 'gifts'"
+        type="primary"
+        @click="handleCreateGift"
+      >
+        新增记录
+      </n-button>
+      <n-button
+        v-else
+        type="primary"
+        @click="handleCreateCategory"
+      >
+        新增类别
+      </n-button>
     </header>
 
     <main class="page-main">
-      <GiftList ref="listRef" @edit="handleEdit" @deleted="handleDeleted" />
+      <n-tabs v-model:value="activeTab" type="bar" :tab-padding="16" size="large">
+        <n-tab-pane name="gifts" tab="赠送记录">
+          <GiftList
+            ref="giftListRef"
+            @edit="handleEditGift"
+            @deleted="handleGiftDeleted"
+          />
+        </n-tab-pane>
+        <n-tab-pane name="categories" tab="类别管理">
+          <CategoryList
+            ref="categoryListRef"
+            @edit="handleEditCategory"
+            @deleted="handleCategoryDeleted"
+          />
+        </n-tab-pane>
+      </n-tabs>
     </main>
 
     <GiftFormModal
-      v-model:show="showModal"
+      v-model:show="showGiftModal"
       :gift="editingGift"
-      @saved="handleSaved"
+      @saved="handleGiftSaved"
+    />
+
+    <CategoryFormModal
+      v-model:show="showCategoryModal"
+      :category="editingCategory"
+      @saved="handleCategorySaved"
     />
   </div>
 </template>
@@ -89,8 +151,8 @@ function handleDeleted(): void {
 .page-main {
   background: #fff;
   border-radius: 8px;
-  padding: 20px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
 }
 </style>
 

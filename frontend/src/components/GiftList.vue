@@ -22,7 +22,6 @@ const {
   execute: reload,
 } = useAsyncState(fetchGifts, [], { immediate: false })
 
-/** 格式化赠送日期为中文显示 */
 function formatGiftDate(value: string): string {
   try {
     return format(parseISO(value), 'yyyy年M月d日', { locale: zhCN })
@@ -33,6 +32,15 @@ function formatGiftDate(value: string): string {
 
 const columns = computed<DataTableColumns<Gift>>(() => [
   { title: '物品名', key: 'item_name', width: 140, ellipsis: { tooltip: true } },
+  {
+    title: '物品类别',
+    key: 'category_name',
+    width: 110,
+    render: (row) =>
+      row.category_name
+        ? h('span', { class: 'tag tag--category' }, row.category_name)
+        : h('span', { class: 'text-muted' }, '未分类'),
+  },
   { title: '描述', key: 'description', ellipsis: { tooltip: true } },
   {
     title: '赠送日期',
@@ -80,7 +88,6 @@ const columns = computed<DataTableColumns<Gift>>(() => [
   },
 ])
 
-/** 确认并删除记录 */
 function confirmDelete(gift: Gift): void {
   dialog.warning({
     title: '确认删除',
@@ -141,5 +148,15 @@ defineExpose({ reload })
 :deep(.tag--pending) {
   background: #fff3e0;
   color: #ef6c00;
+}
+
+:deep(.tag--category) {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+:deep(.text-muted) {
+  color: #999;
+  font-size: 12px;
 }
 </style>
