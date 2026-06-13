@@ -1,7 +1,7 @@
 """社区旧物赠送流转记录 - Flask 后端."""
 
 import sqlite3
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from flask import Flask, jsonify, request
@@ -10,6 +10,10 @@ from flask_cors import CORS
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "gift.db"
+
+RESERVATION_STATUS_PENDING = "pending"
+RESERVATION_STATUS_CONFIRMED = "confirmed"
+RESERVATION_STATUS_CANCELLED = "cancelled"
 
 app = Flask(__name__)
 CORS(app)
@@ -42,6 +46,17 @@ def row_to_gift(row: sqlite3.Row) -> dict:
     }
 
 
+def row_to_reservation(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "gift_id": row["gift_id"],
+        "gift_item_name": row["gift_item_name"],
+        "reserver_nickname": row["reserver_nickname"],
+        "reserve_time": row["reserve_time"],
+        "status": row["status"],
+    }
+
+
 def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     conn = get_db()
@@ -67,6 +82,19 @@ def init_db() -> None:
                 is_taken INTEGER NOT NULL DEFAULT 0,
                 category_id INTEGER DEFAULT NULL,
                 FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS reservations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                gift_id INTEGER NOT NULL,
+                reserver_nickname TEXT NOT NULL,
+                reserve_time TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                FOREIGN KEY (gift_id) REFERENCES gifts(id) ON DELETE CASCADE
             )
             """
         )
@@ -107,6 +135,28 @@ def init_db() -> None:
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 seed_gifts,
+            )
+            conn.commit()
+
+        gift_rows = conn.execute("SELECT id, item_name FROM gifts ORDER BY id").fetchall()
+        gift_map = {r["item_name"]: r["id"] for r in gift_rows}
+
+        resv_count = conn.execute("SELECT COUNT(*) FROM reservations").fetchone()[0]
+        if resv_count == 0:
+            seed_reservations = [
+                (gift_map.get("电热水壶"), "张阿姨", "2026-03-06 10:30:00", RESERVATION_STATUS_PENDING),
+                (gift_map.get("冬季厚棉被"), "501室王姐", "2026-03-11 14:20:00", RESERVATION_STATUS_CONFIRMED),
+                (gift_map.get("闲置键盘"), "学生小李", "2026-03-13 09:15:00", RESERVATION_STATUS_CANCELLED),
+                (gift_map.get("电热水壶"), "203室老刘", "2026-03-07 16:45:00", RESERVATION_STATUS_PENDING),
+                (gift_map.get("冬季厚棉被"), "社区张叔", "2026-03-12 11:00:00", RESERVATION_STATUS_CONFIRMED),
+            ]
+            conn.executemany(
+                """
+                INSERT INTO reservations
+                    (gift_id, reserver_nickname, reserve_time, status)
+                VALUES (?, ?, ?, ?)
+                """,
+                seed_reservations,
             )
         conn.commit()
     finally:
@@ -390,6 +440,146 @@ def delete_gift(gift_id: int):
         conn.execute("DELETE FROM gifts WHERE id = ?", (gift_id,))
         conn.commit()
         return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
+# ----------------------------- Reservations API -----------------------------
+
+@app.route("/api/reservations", methods=["GET"])
+def list_reservations():
+    status = request.args.get("status")
+    conn = get_db()
+    try:
+        base_sql = """
+            SELECT r.*, g.item_name AS gift_item_name
+            FROM reservations r
+            LEFT JOIN gifts g ON r.gift_id = g.id
+        """
+        params: tuple = ()
+        if status:
+            valid_statuses = {
+                RESERVATION_STATUS_PENDING,
+                RESERVATION_STATUS_CONFIRMED,
+                RESERVATION_STATUS_CANCELLED,
+            }
+            if status not in valid_statuses:
+                return jsonify({"error": "无效的预约状态"}), 400
+            base_sql += " WHERE r.status = ?"
+            params = (status,)
+        base_sql += " ORDER BY r.reserve_time DESC, r.id DESC"
+        rows = conn.execute(base_sql, params).fetchall()
+        return jsonify([row_to_reservation(r) for r in rows])
+    finally:
+        conn.close()
+
+
+@app.route("/api/reservations/<int:resv_id>", methods=["GET"])
+def get_reservation(resv_id: int):
+    conn = get_db()
+    try:
+        row = conn.execute(
+            """
+            SELECT r.*, g.item_name AS gift_item_name
+            FROM reservations r
+            LEFT JOIN gifts g ON r.gift_id = g.id
+            WHERE r.id = ?
+            """,
+            (resv_id,),
+        ).fetchone()
+        if row is None:
+            return jsonify({"error": "预约记录不存在"}), 404
+        return jsonify(row_to_reservation(row))
+    finally:
+        conn.close()
+
+
+@app.route("/api/reservations", methods=["POST"])
+def create_reservation():
+    data = request.get_json(silent=True) or {}
+    gift_id = data.get("gift_id")
+    reserver_nickname = (data.get("reserver_nickname") or "").strip()
+
+    if gift_id is None:
+        return jsonify({"error": "请选择预约物品"}), 400
+    try:
+        gift_id = int(gift_id)
+    except (TypeError, ValueError):
+        return jsonify({"error": "无效的物品编号"}), 400
+
+    if not reserver_nickname:
+        return jsonify({"error": "预约人昵称不能为空"}), 400
+
+    reserve_time = (
+        data.get("reserve_time") or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ).strip()
+    status = (data.get("status") or RESERVATION_STATUS_PENDING).strip()
+
+    valid_statuses = {
+        RESERVATION_STATUS_PENDING,
+        RESERVATION_STATUS_CONFIRMED,
+        RESERVATION_STATUS_CANCELLED,
+    }
+    if status not in valid_statuses:
+        status = RESERVATION_STATUS_PENDING
+
+    conn = get_db()
+    try:
+        gift_exists = conn.execute("SELECT id FROM gifts WHERE id = ?", (gift_id,)).fetchone()
+        if gift_exists is None:
+            return jsonify({"error": "预约物品不存在"}), 400
+
+        cursor = conn.execute(
+            """
+            INSERT INTO reservations
+                (gift_id, reserver_nickname, reserve_time, status)
+            VALUES (?, ?, ?, ?)
+            """,
+            (gift_id, reserver_nickname, reserve_time, status),
+        )
+        conn.commit()
+        row = conn.execute(
+            """
+            SELECT r.*, g.item_name AS gift_item_name
+            FROM reservations r
+            LEFT JOIN gifts g ON r.gift_id = g.id
+            WHERE r.id = ?
+            """,
+            (cursor.lastrowid,),
+        ).fetchone()
+        return jsonify(row_to_reservation(row)), 201
+    finally:
+        conn.close()
+
+
+@app.route("/api/reservations/<int:resv_id>/cancel", methods=["PUT"])
+def cancel_reservation(resv_id: int):
+    conn = get_db()
+    try:
+        existing = conn.execute(
+            "SELECT id, status FROM reservations WHERE id = ?", (resv_id,)
+        ).fetchone()
+        if existing is None:
+            return jsonify({"error": "预约记录不存在"}), 404
+
+        if existing["status"] == RESERVATION_STATUS_CANCELLED:
+            return jsonify({"error": "该预约已取消，无需重复操作"}), 400
+
+        conn.execute(
+            "UPDATE reservations SET status = ? WHERE id = ?",
+            (RESERVATION_STATUS_CANCELLED, resv_id),
+        )
+        conn.commit()
+        row = conn.execute(
+            """
+            SELECT r.*, g.item_name AS gift_item_name
+            FROM reservations r
+            LEFT JOIN gifts g ON r.gift_id = g.id
+            WHERE r.id = ?
+            """,
+            (resv_id,),
+        ).fetchone()
+        return jsonify(row_to_reservation(row))
     finally:
         conn.close()
 

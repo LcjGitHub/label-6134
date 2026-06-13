@@ -5,12 +5,15 @@ import GiftList from './components/GiftList.vue'
 import GiftFormModal from './components/GiftFormModal.vue'
 import CategoryList from './components/CategoryList.vue'
 import CategoryFormModal from './components/CategoryFormModal.vue'
+import ReservationList from './components/ReservationList.vue'
+import ReservationFormModal from './components/ReservationFormModal.vue'
 import type { Gift } from './types/gift'
 import type { Category } from './types/category'
+import type { Reservation } from './types/reservation'
 
 const message = useMessage()
 
-const activeTab = ref<'gifts' | 'categories'>('gifts')
+const activeTab = ref<'gifts' | 'categories' | 'reservations'>('gifts')
 
 const giftListRef = ref<InstanceType<typeof GiftList> | null>(null)
 const showGiftModal = ref(false)
@@ -19,6 +22,10 @@ const editingGift = ref<Gift | null>(null)
 const categoryListRef = ref<InstanceType<typeof CategoryList> | null>(null)
 const showCategoryModal = ref(false)
 const editingCategory = ref<Category | null>(null)
+
+const reservationListRef = ref<InstanceType<typeof ReservationList> | null>(null)
+const showReservationModal = ref(false)
+const editingReservation = ref<Reservation | null>(null)
 
 function handleCreateGift(): void {
   editingGift.value = null
@@ -63,6 +70,22 @@ function handleCategoryDeleted(): void {
   categoryListRef.value?.reload()
   message.success('类别已删除')
 }
+
+function handleCreateReservation(): void {
+  editingReservation.value = null
+  showReservationModal.value = true
+}
+
+function handleReservationSaved(): void {
+  showReservationModal.value = false
+  reservationListRef.value?.reload()
+  message.success('预约已创建')
+}
+
+function handleReservationDeleted(): void {
+  reservationListRef.value?.reload()
+  message.success('预约已取消')
+}
 </script>
 
 <template>
@@ -80,11 +103,18 @@ function handleCategoryDeleted(): void {
         新增记录
       </n-button>
       <n-button
-        v-else
+        v-else-if="activeTab === 'categories'"
         type="primary"
         @click="handleCreateCategory"
       >
         新增类别
+      </n-button>
+      <n-button
+        v-else
+        type="primary"
+        @click="handleCreateReservation"
+      >
+        新增预约
       </n-button>
     </header>
 
@@ -104,6 +134,12 @@ function handleCategoryDeleted(): void {
             @deleted="handleCategoryDeleted"
           />
         </n-tab-pane>
+        <n-tab-pane name="reservations" tab="领取预约">
+          <ReservationList
+            ref="reservationListRef"
+            @deleted="handleReservationDeleted"
+          />
+        </n-tab-pane>
       </n-tabs>
     </main>
 
@@ -117,6 +153,12 @@ function handleCategoryDeleted(): void {
       v-model:show="showCategoryModal"
       :category="editingCategory"
       @saved="handleCategorySaved"
+    />
+
+    <ReservationFormModal
+      v-model:show="showReservationModal"
+      :reservation="editingReservation"
+      @saved="handleReservationSaved"
     />
   </div>
 </template>
