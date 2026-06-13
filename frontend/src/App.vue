@@ -8,6 +8,7 @@ import CategoryFormModal from './components/CategoryFormModal.vue'
 import ReservationList from './components/ReservationList.vue'
 import ReservationFormModal from './components/ReservationFormModal.vue'
 import GiftStats from './components/GiftStats.vue'
+import NoteModal from './components/NoteModal.vue'
 import type { Gift } from './types/gift'
 import type { Category } from './types/category'
 
@@ -25,6 +26,10 @@ const editingCategory = ref<Category | null>(null)
 
 const reservationListRef = ref<InstanceType<typeof ReservationList> | null>(null)
 const showReservationModal = ref(false)
+
+const noteModalVisible = ref(false)
+const noteModalGiftId = ref<number | null>(null)
+const noteModalItemName = ref('')
 
 const statsKey = ref(0)
 
@@ -88,6 +93,12 @@ function handleReservationDeleted(): void {
   message.success('预约已取消')
 }
 
+function handleViewNotes(gift: Gift): void {
+  noteModalGiftId.value = gift.id
+  noteModalItemName.value = gift.item_name
+  noteModalVisible.value = true
+}
+
 function refreshStats(): void {
   if (activeTab.value === 'stats') {
     statsKey.value++
@@ -138,6 +149,7 @@ watch(activeTab, (newTab) => {
             ref="giftListRef"
             @edit="handleEditGift"
             @deleted="handleGiftDeleted"
+            @view-notes="handleViewNotes"
           />
         </n-tab-pane>
         <n-tab-pane name="categories" tab="类别管理">
@@ -174,6 +186,12 @@ watch(activeTab, (newTab) => {
     <ReservationFormModal
       v-model:show="showReservationModal"
       @saved="handleReservationSaved"
+    />
+
+    <NoteModal
+      v-model:show="noteModalVisible"
+      :gift-id="noteModalGiftId"
+      :gift-item-name="noteModalItemName"
     />
   </div>
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useMessage } from 'naive-ui'
 import { NButton, NInput, NModal, NTimeline, NTimelineItem } from 'naive-ui'
 import { format, parseISO } from 'date-fns'
@@ -23,6 +23,11 @@ const notes = ref<GiftNote[]>([])
 const loading = ref(false)
 const newContent = ref('')
 const submitting = ref(false)
+
+const visible = computed({
+  get: () => props.show,
+  set: (val: boolean) => emit('update:show', val),
+})
 
 function formatDateTime(value: string): string {
   try {
@@ -62,10 +67,6 @@ async function handleSubmit(): Promise<void> {
   }
 }
 
-function handleClose(): void {
-  emit('update:show', false)
-}
-
 watch(
   () => props.show,
   (newVal) => {
@@ -80,8 +81,7 @@ watch(
 
 <template>
   <n-modal
-    :show="show"
-    @update:show="handleClose"
+    v-model:show="visible"
     preset="card"
     :title="`${giftItemName} - 流转备注`"
     style="width: 560px"
@@ -113,7 +113,7 @@ watch(
           @keydown.enter.ctrl="handleSubmit"
         />
         <div class="note-input-footer">
-          <span class="hint-text">按 Ctrl + Enter 快速提交</span>
+          <span class="hint-text">按 控制键+回车 快速提交</span>
           <n-button
             type="primary"
             :loading="submitting"
