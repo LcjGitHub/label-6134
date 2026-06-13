@@ -17,3 +17,15 @@ export interface GiftFormData {
   is_taken: boolean
   category_id: number | null
 }
+
+export interface MonthlyStat {
+  month: string
+  count: number
+}
+
+export interface GiftStats {
+  total_count: number
+  taken_count: number
+  pending_count: number
+  monthly_stats: MonthlyStat[]
+}

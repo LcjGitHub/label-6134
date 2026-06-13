@@ -7,12 +7,13 @@ import CategoryList from './components/CategoryList.vue'
 import CategoryFormModal from './components/CategoryFormModal.vue'
 import ReservationList from './components/ReservationList.vue'
 import ReservationFormModal from './components/ReservationFormModal.vue'
+import GiftStats from './components/GiftStats.vue'
 import type { Gift } from './types/gift'
 import type { Category } from './types/category'
 
 const message = useMessage()
 
-const activeTab = ref<'gifts' | 'categories' | 'reservations'>('gifts')
+const activeTab = ref<'gifts' | 'categories' | 'reservations' | 'stats'>('gifts')
 
 const giftListRef = ref<InstanceType<typeof GiftList> | null>(null)
 const showGiftModal = ref(false)
@@ -24,6 +25,8 @@ const editingCategory = ref<Category | null>(null)
 
 const reservationListRef = ref<InstanceType<typeof ReservationList> | null>(null)
 const showReservationModal = ref(false)
+
+const giftStatsRef = ref<InstanceType<typeof GiftStats> | null>(null)
 
 function handleCreateGift(): void {
   editingGift.value = null
@@ -106,7 +109,7 @@ function handleReservationDeleted(): void {
         新增类别
       </n-button>
       <n-button
-        v-else
+        v-else-if="activeTab === 'reservations'"
         type="primary"
         @click="handleCreateReservation"
       >
@@ -135,6 +138,9 @@ function handleReservationDeleted(): void {
             ref="reservationListRef"
             @deleted="handleReservationDeleted"
           />
+        </n-tab-pane>
+        <n-tab-pane name="stats" tab="统计概览">
+          <GiftStats ref="giftStatsRef" />
         </n-tab-pane>
       </n-tabs>
     </main>
