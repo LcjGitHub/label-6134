@@ -7,6 +7,7 @@ import type { DataTableColumns } from 'naive-ui'
 import { NButton, NDescriptions, NDescriptionsItem, NModal, useDialog } from 'naive-ui'
 import { deleteGift, fetchGifts } from '../api/gift'
 import type { Gift } from '../types/gift'
+import NoteModal from './NoteModal.vue'
 
 const emit = defineEmits<{
   edit: [gift: Gift]
@@ -25,6 +26,10 @@ const {
 const detailVisible = ref(false)
 const currentGift = ref<Gift | null>(null)
 
+const noteModalVisible = ref(false)
+const noteModalGiftId = ref<number | null>(null)
+const noteModalItemName = ref('')
+
 function formatGiftDate(value: string): string {
   try {
     return format(parseISO(value), 'yyyy年M月d日', { locale: zhCN })
@@ -36,6 +41,12 @@ function formatGiftDate(value: string): string {
 function showDetail(gift: Gift): void {
   currentGift.value = gift
   detailVisible.value = true
+}
+
+function showNotes(gift: Gift): void {
+  noteModalGiftId.value = gift.id
+  noteModalItemName.value = gift.item_name
+  noteModalVisible.value = true
 }
 
 const columns = computed<DataTableColumns<Gift>>(() => [
@@ -70,9 +81,22 @@ const columns = computed<DataTableColumns<Gift>>(() => [
   {
     title: '操作',
     key: 'actions',
-    width: 150,
+    width: 220,
     render: (row) =>
       h('div', { class: 'actions' }, [
+        h(
+          NButton,
+          {
+            size: 'small',
+            quaternary: true,
+            type: 'primary',
+            onClick: (e: MouseEvent) => {
+              e.stopPropagation()
+              showNotes(row)
+            },
+          },
+          { default: () => '备注' },
+        ),
         h(
           NButton,
           {
@@ -183,6 +207,12 @@ defineExpose({ reload })
         </div>
       </template>
     </n-modal>
+
+    <NoteModal
+      v-model:show="noteModalVisible"
+      :gift-id="noteModalGiftId"
+      :gift-item-name="noteModalItemName"
+    />
   </n-spin>
 </template>
 

@@ -59,6 +59,15 @@ def row_to_reservation(row: sqlite3.Row) -> dict:
     }
 
 
+def row_to_note(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "gift_id": row["gift_id"],
+        "content": row["content"],
+        "created_at": row["created_at"],
+    }
+
+
 def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     conn = get_db()
@@ -98,6 +107,18 @@ def init_db() -> None:
                 reserver_nickname TEXT NOT NULL,
                 reserve_time TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'pending',
+                FOREIGN KEY (gift_id) REFERENCES gifts(id) ON DELETE CASCADE
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS gift_notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                gift_id INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
                 FOREIGN KEY (gift_id) REFERENCES gifts(id) ON DELETE CASCADE
             )
             """
@@ -180,6 +201,26 @@ def init_db() -> None:
                 VALUES (?, ?, ?, ?)
                 """,
                 seed_reservations,
+            )
+
+        note_count = conn.execute("SELECT COUNT(*) FROM gift_notes").fetchone()[0]
+        if note_count == 0:
+            seed_notes = [
+                (gift_map.get("儿童绘本一套"), "物品已清洗消毒，可放心使用", "2026-03-01 09:00:00"),
+                (gift_map.get("儿童绘本一套"), "接收人已确认取走，孩子很喜欢", "2026-03-02 14:30:00"),
+                (gift_map.get("电热水壶"), "底座稍有磨损，但不影响使用", "2026-03-05 11:00:00"),
+                (gift_map.get("折叠晾衣架"), "已预约社区赵叔本周末上门领取", "2026-03-08 16:00:00"),
+                (gift_map.get("折叠晾衣架"), "赵叔已取走，表示感谢", "2026-03-10 10:00:00"),
+                (gift_map.get("冬季厚棉被"), "棉被已重新晾晒，保暖性好", "2026-03-10 08:30:00"),
+                (gift_map.get("闲置键盘"), "赠送人说明可免费维修更换键帽", "2026-03-12 15:00:00"),
+            ]
+            conn.executemany(
+                """
+                INSERT INTO gift_notes
+                    (gift_id, content, created_at)
+                VALUES (?, ?, ?)
+                """,
+                seed_notes,
             )
         conn.commit()
     finally:
@@ -661,6 +702,51 @@ def get_gift_stats():
             "pending_count": pending_count,
             "monthly_stats": monthly_stats,
         })
+    finally:
+        conn.close()
+
+
+# ----------------------------- Gift Notes API -----------------------------
+
+@app.route("/api/gifts/<int:gift_id>/notes", methods=["GET"])
+def list_gift_notes(gift_id: int):
+    conn = get_db()
+    try:
+        gift_exists = conn.execute("SELECT id FROM gifts WHERE id = ?", (gift_id,)).fetchone()
+        if gift_exists is None:
+            return jsonify({"error": "赠送记录不存在"}), 404
+        rows = conn.execute(
+            "SELECT * FROM gift_notes WHERE gift_id = ? ORDER BY created_at DESC, id DESC",
+            (gift_id,),
+        ).fetchall()
+        return jsonify([row_to_note(r) for r in rows])
+    finally:
+        conn.close()
+
+
+@app.route("/api/gifts/<int:gift_id>/notes", methods=["POST"])
+def create_gift_note(gift_id: int):
+    data = request.get_json(silent=True) or {}
+    content = (data.get("content") or "").strip()
+    if not content:
+        return jsonify({"error": "备注内容不能为空"}), 400
+
+    conn = get_db()
+    try:
+        gift_exists = conn.execute("SELECT id FROM gifts WHERE id = ?", (gift_id,)).fetchone()
+        if gift_exists is None:
+            return jsonify({"error": "赠送记录不存在"}), 404
+
+        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor = conn.execute(
+            "INSERT INTO gift_notes (gift_id, content, created_at) VALUES (?, ?, ?)",
+            (gift_id, content, created_at),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM gift_notes WHERE id = ?", (cursor.lastrowid,)
+        ).fetchone()
+        return jsonify(row_to_note(row)), 201
     finally:
         conn.close()
 
