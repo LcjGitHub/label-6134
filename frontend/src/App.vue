@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useMessage } from 'naive-ui'
 import GiftList from './components/GiftList.vue'
 import GiftFormModal from './components/GiftFormModal.vue'
@@ -26,7 +26,7 @@ const editingCategory = ref<Category | null>(null)
 const reservationListRef = ref<InstanceType<typeof ReservationList> | null>(null)
 const showReservationModal = ref(false)
 
-const giftStatsRef = ref<InstanceType<typeof GiftStats> | null>(null)
+const statsKey = ref(0)
 
 function handleCreateGift(): void {
   editingGift.value = null
@@ -42,11 +42,13 @@ function handleGiftSaved(): void {
   const isEdit = editingGift.value !== null
   showGiftModal.value = false
   giftListRef.value?.reload()
+  refreshStats()
   message.success(isEdit ? '记录已更新' : '记录已创建')
 }
 
 function handleGiftDeleted(): void {
   giftListRef.value?.reload()
+  refreshStats()
   message.success('记录已删除')
 }
 
@@ -85,6 +87,18 @@ function handleReservationDeleted(): void {
   reservationListRef.value?.reload()
   message.success('预约已取消')
 }
+
+function refreshStats(): void {
+  if (activeTab.value === 'stats') {
+    statsKey.value++
+  }
+}
+
+watch(activeTab, (newTab) => {
+  if (newTab === 'stats') {
+    statsKey.value++
+  }
+})
 </script>
 
 <template>
@@ -140,7 +154,7 @@ function handleReservationDeleted(): void {
           />
         </n-tab-pane>
         <n-tab-pane name="stats" tab="统计概览">
-          <GiftStats ref="giftStatsRef" />
+          <GiftStats :key="statsKey" />
         </n-tab-pane>
       </n-tabs>
     </main>
