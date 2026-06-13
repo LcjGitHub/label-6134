@@ -51,9 +51,9 @@ const rules: FormRules = {
   item_name: [{ required: true, message: '请输入物品名', trigger: ['blur', 'input'] }],
   gift_date: [{ required: true, message: '请选择赠送日期', trigger: ['blur', 'change'] }],
   donor_phone: [
+    { required: true, message: '请输入联系电话', trigger: ['blur', 'input'] },
     {
       validator: (_rule, value) => {
-        if (!value) return true
         if (!/^\d{11}$/.test(value)) {
           return new Error('联系电话必须为11位数字')
         }
@@ -179,13 +179,6 @@ async function handleSubmit(): Promise<void> {
         />
       </n-form-item>
 
-      <n-form-item label="接收方昵称" path="recipient_nickname">
-        <n-input
-          v-model:value="formModel.recipient_nickname"
-          placeholder="领取人社区昵称"
-        />
-      </n-form-item>
-
       <n-form-item label="赠送人昵称" path="donor_nickname">
         <n-input
           v-model:value="formModel.donor_nickname"
@@ -198,6 +191,13 @@ async function handleSubmit(): Promise<void> {
           v-model:value="formModel.donor_phone"
           placeholder="11位手机号码"
           maxlength="11"
+        />
+      </n-form-item>
+
+      <n-form-item label="接收方昵称" path="recipient_nickname">
+        <n-input
+          v-model:value="formModel.recipient_nickname"
+          placeholder="领取人社区昵称"
         />
       </n-form-item>
 

@@ -103,6 +103,26 @@ def init_db() -> None:
             """
         )
 
+        cur = conn.execute("PRAGMA table_info(gifts)")
+        existing_cols = {row["name"] for row in cur.fetchall()}
+        if "donor_nickname" not in existing_cols:
+            conn.execute("ALTER TABLE gifts ADD COLUMN donor_nickname TEXT NOT NULL DEFAULT ''")
+        if "donor_phone" not in existing_cols:
+            conn.execute("ALTER TABLE gifts ADD COLUMN donor_phone TEXT NOT NULL DEFAULT ''")
+            donor_infos = [
+                ("儿童绘本一套", "爱心妈妈李女士", "13800138001"),
+                ("电热水壶", "201室张先生", "13800138002"),
+                ("折叠晾衣架", "阳光大姐王阿姨", "13800138003"),
+                ("冬季厚棉被", "退休教师陈奶奶", "13800138004"),
+                ("闲置键盘", "IT工程师老刘", "13800138005"),
+            ]
+            for item_name, nickname, phone in donor_infos:
+                conn.execute(
+                    "UPDATE gifts SET donor_nickname = ?, donor_phone = ? WHERE item_name = ? AND (donor_nickname = '' OR donor_phone = '')",
+                    (nickname, phone, item_name),
+                )
+            conn.commit()
+
         cat_count = conn.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
         if cat_count == 0:
             seed_categories = [
@@ -335,7 +355,9 @@ def create_gift():
     donor_nickname = (data.get("donor_nickname") or "").strip()
     donor_phone = (data.get("donor_phone") or "").strip()
 
-    if donor_phone and not re.match(r"^\d{11}$", donor_phone):
+    if not donor_phone:
+        return jsonify({"error": "联系电话不能为空"}), 400
+    if not re.match(r"^\d{11}$", donor_phone):
         return jsonify({"error": "联系电话必须为11位数字"}), 400
 
     category_id = data.get("category_id")
@@ -393,7 +415,9 @@ def update_gift(gift_id: int):
     donor_nickname = (data.get("donor_nickname") or "").strip()
     donor_phone = (data.get("donor_phone") or "").strip()
 
-    if donor_phone and not re.match(r"^\d{11}$", donor_phone):
+    if not donor_phone:
+        return jsonify({"error": "联系电话不能为空"}), 400
+    if not re.match(r"^\d{11}$", donor_phone):
         return jsonify({"error": "联系电话必须为11位数字"}), 400
 
     category_id = data.get("category_id")

@@ -79,7 +79,10 @@ const columns = computed<DataTableColumns<Gift>>(() => [
             size: 'small',
             quaternary: true,
             type: 'primary',
-            onClick: () => emit('edit', row),
+            onClick: (e: MouseEvent) => {
+              e.stopPropagation()
+              emit('edit', row)
+            },
           },
           { default: () => '编辑' },
         ),
@@ -89,7 +92,10 @@ const columns = computed<DataTableColumns<Gift>>(() => [
             size: 'small',
             quaternary: true,
             type: 'error',
-            onClick: () => confirmDelete(row),
+            onClick: (e: MouseEvent) => {
+              e.stopPropagation()
+              confirmDelete(row)
+            },
           },
           { default: () => '删除' },
         ),
