@@ -13,5 +13,4 @@ export interface ReservationFormData {
   gift_id: number | null
   reserver_nickname: string
   reserve_time: string
-  status: ReservationStatus
 }

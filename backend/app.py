@@ -147,8 +147,7 @@ def init_db() -> None:
                 (gift_map.get("电热水壶"), "张阿姨", "2026-03-06 10:30:00", RESERVATION_STATUS_PENDING),
                 (gift_map.get("冬季厚棉被"), "501室王姐", "2026-03-11 14:20:00", RESERVATION_STATUS_CONFIRMED),
                 (gift_map.get("闲置键盘"), "学生小李", "2026-03-13 09:15:00", RESERVATION_STATUS_CANCELLED),
-                (gift_map.get("电热水壶"), "203室老刘", "2026-03-07 16:45:00", RESERVATION_STATUS_PENDING),
-                (gift_map.get("冬季厚棉被"), "社区张叔", "2026-03-12 11:00:00", RESERVATION_STATUS_CONFIRMED),
+                (gift_map.get("折叠晾衣架"), "社区赵叔", "2026-03-09 15:00:00", RESERVATION_STATUS_PENDING),
             ]
             conn.executemany(
                 """

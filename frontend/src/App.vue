@@ -9,7 +9,6 @@ import ReservationList from './components/ReservationList.vue'
 import ReservationFormModal from './components/ReservationFormModal.vue'
 import type { Gift } from './types/gift'
 import type { Category } from './types/category'
-import type { Reservation } from './types/reservation'
 
 const message = useMessage()
 
@@ -25,7 +24,6 @@ const editingCategory = ref<Category | null>(null)
 
 const reservationListRef = ref<InstanceType<typeof ReservationList> | null>(null)
 const showReservationModal = ref(false)
-const editingReservation = ref<Reservation | null>(null)
 
 function handleCreateGift(): void {
   editingGift.value = null
@@ -72,14 +70,12 @@ function handleCategoryDeleted(): void {
 }
 
 function handleCreateReservation(): void {
-  editingReservation.value = null
   showReservationModal.value = true
 }
 
 function handleReservationSaved(): void {
   showReservationModal.value = false
   reservationListRef.value?.reload()
-  message.success('预约已创建')
 }
 
 function handleReservationDeleted(): void {
@@ -157,7 +153,6 @@ function handleReservationDeleted(): void {
 
     <ReservationFormModal
       v-model:show="showReservationModal"
-      :reservation="editingReservation"
       @saved="handleReservationSaved"
     />
   </div>

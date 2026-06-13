@@ -6,11 +6,10 @@ import type { FormInst, FormRules, SelectOption } from 'naive-ui'
 import { createReservation } from '../api/reservation'
 import { fetchGifts } from '../api/gift'
 import type { Gift } from '../types/gift'
-import type { Reservation, ReservationFormData, ReservationStatus } from '../types/reservation'
+import type { ReservationFormData } from '../types/reservation'
 
 const props = defineProps<{
   show: boolean
-  reservation: Reservation | null
 }>()
 
 const emit = defineEmits<{
@@ -25,8 +24,6 @@ const submitting = ref(false)
 const gifts = ref<Gift[]>([])
 const giftsLoading = ref(false)
 
-const isEdit = computed(() => props.reservation !== null)
-
 const giftOptions = computed<SelectOption[]>(() =>
   gifts.value.map((g) => ({
     label: g.item_name,
@@ -34,17 +31,10 @@ const giftOptions = computed<SelectOption[]>(() =>
   })),
 )
 
-const statusOptions: SelectOption[] = [
-  { label: '待确认', value: 'pending' },
-  { label: '已确认', value: 'confirmed' },
-  { label: '已取消', value: 'cancelled' },
-]
-
 const defaultForm = (): ReservationFormData => ({
   gift_id: null,
   reserver_nickname: '',
   reserve_time: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
-  status: 'pending' as ReservationStatus,
 })
 
 const formModel = ref<ReservationFormData>(defaultForm())
@@ -54,8 +44,6 @@ const rules: FormRules = {
   reserver_nickname: [{ required: true, message: '请输入预约人昵称', trigger: ['blur', 'input'] }],
   reserve_time: [{ required: true, message: '请选择预约时间', trigger: ['blur', 'change'] }],
 }
-
-const modalTitle = computed(() => (isEdit.value ? '编辑预约记录' : '新增预约记录'))
 
 async function loadGifts(): Promise<void> {
   giftsLoading.value = true
@@ -74,16 +62,7 @@ watch(
   async (visible) => {
     if (!visible) return
     await loadGifts()
-    if (props.reservation) {
-      formModel.value = {
-        gift_id: props.reservation.gift_id,
-        reserver_nickname: props.reservation.reserver_nickname,
-        reserve_time: props.reservation.reserve_time,
-        status: props.reservation.status,
-      }
-    } else {
-      formModel.value = defaultForm()
-    }
+    formModel.value = defaultForm()
     formRef.value?.restoreValidation()
   },
   { immediate: true },
@@ -104,7 +83,6 @@ async function handleSubmit(): Promise<void> {
     await createReservation(formModel.value)
     emit('saved')
     message.success('预约已创建')
-    emit('update:show', false)
   } catch (e: any) {
     const msg = e?.response?.data?.error || '提交失败，请重试'
     message.error(msg)
@@ -118,7 +96,7 @@ async function handleSubmit(): Promise<void> {
   <n-modal
     :show="show"
     preset="card"
-    :title="modalTitle"
+    title="新增预约记录"
     style="width: 520px"
     :mask-closable="false"
     @update:show="emit('update:show', $event)"
@@ -161,21 +139,13 @@ async function handleSubmit(): Promise<void> {
           clearable
         />
       </n-form-item>
-
-      <n-form-item label="预约状态" path="status" v-if="isEdit">
-        <n-select
-          v-model:value="formModel.status"
-          :options="statusOptions"
-          placeholder="请选择状态"
-        />
-      </n-form-item>
     </n-form>
 
     <template #footer>
       <div class="footer">
         <n-button @click="handleClose">取消</n-button>
         <n-button type="primary" :loading="submitting" @click="handleSubmit">
-          {{ isEdit ? '保存' : '提交' }}
+          提交
         </n-button>
       </div>
     </template>

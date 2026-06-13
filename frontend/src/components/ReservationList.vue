@@ -4,7 +4,7 @@ import { useAsyncState } from '@vueuse/core'
 import { parse, format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
-import { NButton, useDialog, NSpace } from 'naive-ui'
+import { NButton, useDialog, useMessage, NSpace } from 'naive-ui'
 import { cancelReservation, fetchReservations } from '../api/reservation'
 import type { Reservation, ReservationStatus } from '../types/reservation'
 
@@ -13,6 +13,7 @@ const emit = defineEmits<{
 }>()
 
 const dialog = useDialog()
+const message = useMessage()
 
 const statusFilter = ref<ReservationStatus | ''>('')
 
@@ -115,9 +116,14 @@ function confirmCancel(reservation: Reservation): void {
     positiveText: '取消预约',
     negativeText: '返回',
     onPositiveClick: async () => {
-      await cancelReservation(reservation.id)
-      emit('deleted')
-      await reload()
+      try {
+        await cancelReservation(reservation.id)
+        emit('deleted')
+        await reload()
+      } catch (e: any) {
+        const msg = e?.response?.data?.error || '取消失败，请重试'
+        message.error(msg)
+      }
     },
   })
 }
