@@ -105,6 +105,16 @@ const columns = computed<DataTableColumns<Gift>>(() => [
     width: 130,
     render: (row) => formatGiftDate(row.gift_date),
   },
+  {
+    title: '赠送地点',
+    key: 'location',
+    width: 110,
+    ellipsis: { tooltip: true },
+    render: (row) =>
+      row.location
+        ? h('span', { class: 'tag tag--location' }, row.location)
+        : h('span', { class: 'text-muted' }, '未填写'),
+  },
   { title: '赠送人昵称', key: 'donor_nickname', width: 130, ellipsis: { tooltip: true } },
   { title: '接收方昵称', key: 'recipient_nickname', width: 120 },
   {
@@ -287,6 +297,9 @@ defineExpose({ reload })
         <n-descriptions-item label="联系电话">
           {{ currentGift.donor_phone || '（未填写）' }}
         </n-descriptions-item>
+        <n-descriptions-item label="赠送地点">
+          {{ currentGift.location || '（未填写）' }}
+        </n-descriptions-item>
         <n-descriptions-item label="接收方昵称">
           {{ currentGift.recipient_nickname || '（未填写）' }}
         </n-descriptions-item>
@@ -329,6 +342,11 @@ defineExpose({ reload })
 :deep(.tag--category) {
   background: #e3f2fd;
   color: #1565c0;
+}
+
+:deep(.tag--location) {
+  background: #f3e5f5;
+  color: #7b1fa2;
 }
 
 :deep(.text-muted) {

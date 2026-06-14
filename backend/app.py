@@ -45,6 +45,7 @@ def row_to_gift(row: sqlite3.Row) -> dict:
         "category_name": row["category_name"],
         "donor_nickname": row["donor_nickname"],
         "donor_phone": row["donor_phone"],
+        "location": row["location"],
     }
 
 
@@ -94,6 +95,7 @@ def init_db() -> None:
                 category_id INTEGER DEFAULT NULL,
                 donor_nickname TEXT NOT NULL DEFAULT '',
                 donor_phone TEXT NOT NULL DEFAULT '',
+                location TEXT NOT NULL DEFAULT '',
                 FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
             )
             """
@@ -144,6 +146,22 @@ def init_db() -> None:
                 )
             conn.commit()
 
+        if "location" not in existing_cols:
+            conn.execute("ALTER TABLE gifts ADD COLUMN location TEXT NOT NULL DEFAULT ''")
+            location_infos = [
+                ("儿童绘本一套", "物业前台"),
+                ("电热水壶", "菜鸟驿站"),
+                ("折叠晾衣架", "楼道口"),
+                ("冬季厚棉被", "物业前台"),
+                ("闲置键盘", "菜鸟驿站"),
+            ]
+            for item_name, loc in location_infos:
+                conn.execute(
+                    "UPDATE gifts SET location = ? WHERE item_name = ? AND location = ''",
+                    (loc, item_name),
+                )
+            conn.commit()
+
         cat_count = conn.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
         if cat_count == 0:
             seed_categories = [
@@ -167,17 +185,17 @@ def init_db() -> None:
         gift_count = conn.execute("SELECT COUNT(*) FROM gifts").fetchone()[0]
         if gift_count == 0:
             seed_gifts = [
-                ("儿童绘本一套", "3-6 岁适用，共 12 本，品相良好", "2026-03-01", "小明妈妈", 1, cat_map.get("图书文具"), "爱心妈妈李女士", "13800138001"),
-                ("电热水壶", "1.5L，使用约 1 年，功能正常", "2026-03-05", "邻居阿华", 0, cat_map.get("家居用品"), "201室张先生", "13800138002"),
-                ("折叠晾衣架", "可收纳，适合小户型阳台", "2026-03-08", "302 室小李", 1, cat_map.get("家居用品"), "阳光大姐王阿姨", "13800138003"),
-                ("冬季厚棉被", "8 斤重，已清洗晾晒", "2026-03-10", "社区志愿者", 0, cat_map.get("家居用品"), "退休教师陈奶奶", "13800138004"),
-                ("闲置键盘", "机械键盘青轴，部分键帽有磨损", "2026-03-12", "程序员小王", 0, cat_map.get("数码电子"), "IT工程师老刘", "13800138005"),
+                ("儿童绘本一套", "3-6 岁适用，共 12 本，品相良好", "2026-03-01", "小明妈妈", 1, cat_map.get("图书文具"), "爱心妈妈李女士", "13800138001", "物业前台"),
+                ("电热水壶", "1.5L，使用约 1 年，功能正常", "2026-03-05", "邻居阿华", 0, cat_map.get("家居用品"), "201室张先生", "13800138002", "菜鸟驿站"),
+                ("折叠晾衣架", "可收纳，适合小户型阳台", "2026-03-08", "302 室小李", 1, cat_map.get("家居用品"), "阳光大姐王阿姨", "13800138003", "楼道口"),
+                ("冬季厚棉被", "8 斤重，已清洗晾晒", "2026-03-10", "社区志愿者", 0, cat_map.get("家居用品"), "退休教师陈奶奶", "13800138004", "物业前台"),
+                ("闲置键盘", "机械键盘青轴，部分键帽有磨损", "2026-03-12", "程序员小王", 0, cat_map.get("数码电子"), "IT工程师老刘", "13800138005", "菜鸟驿站"),
             ]
             conn.executemany(
                 """
                 INSERT INTO gifts
-                    (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, location)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 seed_gifts,
             )
@@ -413,6 +431,7 @@ def create_gift():
     is_taken = 1 if data.get("is_taken") else 0
     donor_nickname = (data.get("donor_nickname") or "").strip()
     donor_phone = (data.get("donor_phone") or "").strip()
+    location = (data.get("location") or "").strip()
 
     if not donor_phone:
         return jsonify({"error": "联系电话不能为空"}), 400
@@ -438,10 +457,10 @@ def create_gift():
         cursor = conn.execute(
             """
             INSERT INTO gifts
-                (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, location)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone),
+            (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, location),
         )
         conn.commit()
         row = conn.execute(
@@ -473,6 +492,7 @@ def update_gift(gift_id: int):
     is_taken = 1 if data.get("is_taken") else 0
     donor_nickname = (data.get("donor_nickname") or "").strip()
     donor_phone = (data.get("donor_phone") or "").strip()
+    location = (data.get("location") or "").strip()
 
     if not donor_phone:
         return jsonify({"error": "联系电话不能为空"}), 400
@@ -511,10 +531,11 @@ def update_gift(gift_id: int):
                 is_taken = ?,
                 category_id = ?,
                 donor_nickname = ?,
-                donor_phone = ?
+                donor_phone = ?,
+                location = ?
             WHERE id = ?
             """,
-            (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, gift_id),
+            (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, location, gift_id),
         )
         conn.commit()
         row = conn.execute(

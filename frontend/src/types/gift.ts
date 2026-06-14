@@ -9,6 +9,7 @@ export interface Gift {
   category_name: string | null
   donor_nickname: string
   donor_phone: string
+  location: string
 }
 
 export interface GiftFormData {
@@ -20,6 +21,7 @@ export interface GiftFormData {
   category_id: number | null
   donor_nickname: string
   donor_phone: string
+  location: string
 }
 
 export interface MonthlyStat {

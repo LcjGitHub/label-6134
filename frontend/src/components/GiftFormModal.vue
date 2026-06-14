@@ -43,6 +43,7 @@ const defaultForm = (): GiftFormData => ({
   category_id: null,
   donor_nickname: '',
   donor_phone: '',
+  location: '',
 })
 
 const formModel = ref<GiftFormData>(defaultForm())
@@ -93,6 +94,7 @@ watch(
         category_id: props.gift.category_id,
         donor_nickname: props.gift.donor_nickname,
         donor_phone: props.gift.donor_phone,
+        location: props.gift.location,
       }
     } else {
       formModel.value = defaultForm()
@@ -191,6 +193,13 @@ async function handleSubmit(): Promise<void> {
           v-model:value="formModel.donor_phone"
           placeholder="11位手机号码"
           maxlength="11"
+        />
+      </n-form-item>
+
+      <n-form-item label="赠送地点" path="location">
+        <n-input
+          v-model:value="formModel.location"
+          placeholder="例如：楼道口、物业前台、菜鸟驿站"
         />
       </n-form-item>
 
