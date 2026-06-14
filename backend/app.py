@@ -599,11 +599,11 @@ def export_gifts():
             ])
 
         output.seek(0)
-        content = output.getvalue()
+        content = "\ufeff" + output.getvalue()
         output.close()
 
         filename = f"gift_records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        response = make_response(content)
+        response = make_response(content.encode("utf-8-sig"))
         response.headers["Content-Type"] = "text/csv; charset=utf-8-sig"
         response.headers["Content-Disposition"] = f"attachment; filename={filename}"
         return response

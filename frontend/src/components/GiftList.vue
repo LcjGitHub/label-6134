@@ -91,6 +91,16 @@ function triggerDownload(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url)
 }
 
+async function parseBlobError(blob: Blob): Promise<string | null> {
+  try {
+    const text = await blob.text()
+    const parsed = JSON.parse(text)
+    return parsed.error || null
+  } catch {
+    return null
+  }
+}
+
 async function handleExport(): Promise<void> {
   if (isExporting.value) return
   isExporting.value = true
@@ -101,7 +111,10 @@ async function handleExport(): Promise<void> {
     triggerDownload(blob, filename)
     message.success('导出成功')
   } catch (e: any) {
-    const msg = e?.response?.data?.error || '导出失败，请重试'
+    const blobError = e?.response?.data instanceof Blob
+      ? await parseBlobError(e.response.data)
+      : null
+    const msg = blobError || e?.response?.data?.error || '导出失败，请重试'
     message.error(msg)
   } finally {
     isExporting.value = false

@@ -86,6 +86,7 @@ npm run dev
 | PUT | `/api/gifts/:id/mark-taken` | 快捷标记指定记录为已取走（无需提交完整表单） |
 | DELETE | `/api/gifts/:id` | 删除记录 |
 | GET | `/api/gifts/summary` | 轻量汇总统计（总记录数、已取走数、待取走数），返回字段见下方 |
+| GET | `/api/gifts/export` | 导出赠送记录为 CSV 文件（支持与列表相同的查询参数），返回字段见下方 |
 | GET | `/api/health` | 健康检查 |
 
 **GET `/api/gifts` 可选查询参数：**
@@ -102,6 +103,20 @@ npm run dev
 | `total_count` | int | 赠送记录总条数 |
 | `taken_count` | int | 已标记为取走的记录条数 |
 | `pending_count` | int | 待取走的记录条数（= 总条数 - 已取走数） |
+
+**GET `/api/gifts/export` 可选查询参数：**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `item_name` | string | 按物品名关键字模糊查询，不传则不过滤 |
+| `is_taken` | int | 按是否已取走筛选：`1` 已取走，`0` 待取走，不传则不过滤 |
+
+**GET `/api/gifts/export` 返回格式：**
+
+- Content-Type：`text/csv; charset=utf-8-sig`
+- 响应体为 UTF-8 BOM 开头的 CSV 文本文件，浏览器会触发下载
+- 文件名格式：`gift_records_YYYYMMDD_HHmmss.csv`
+- CSV 列顺序：物品名、描述、赠送日期、接收方昵称、是否已取走
 
 ## 环境要求
 
