@@ -73,6 +73,17 @@ def row_to_volunteer(row: sqlite3.Row) -> dict:
     }
 
 
+def row_to_announcement(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "title": row["title"],
+        "content": row["content"],
+        "publisher_nickname": row["publisher_nickname"],
+        "publish_time": row["publish_time"],
+        "is_pinned": bool(row["is_pinned"]),
+    }
+
+
 def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     conn = get_db()
@@ -140,6 +151,19 @@ def init_db() -> None:
                 skill_category TEXT NOT NULL DEFAULT '',
                 register_date TEXT NOT NULL,
                 is_active INTEGER NOT NULL DEFAULT 1
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS announcements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL DEFAULT '',
+                publisher_nickname TEXT NOT NULL DEFAULT '',
+                publish_time TEXT NOT NULL,
+                is_pinned INTEGER NOT NULL DEFAULT 0
             )
             """
         )
@@ -275,6 +299,54 @@ def init_db() -> None:
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 seed_volunteers,
+            )
+
+        announcement_count = conn.execute("SELECT COUNT(*) FROM announcements").fetchone()[0]
+        if announcement_count == 0:
+            seed_announcements = [
+                (
+                    "社区旧物赠送平台正式上线",
+                    "各位邻居大家好！社区旧物赠送流转平台已正式启用。您可以在此登记家中闲置物品，供有需要的邻居免费领取。让我们一起践行低碳环保，共建温馨社区！",
+                    "物业管理员小王",
+                    "2026-03-01 09:00:00",
+                    1,
+                ),
+                (
+                    "本周六社区跳蚤市场活动通知",
+                    "本周六（3月15日）上午9:00-12:00，社区中心广场将举办跳蚤市场活动，欢迎各位居民带上家中闲置物品前来参与。现场将设置免费领取区和交换区，期待您的到来！",
+                    "社区活动中心",
+                    "2026-03-10 14:30:00",
+                    1,
+                ),
+                (
+                    "关于规范物品领取的温馨提示",
+                    "近期发现个别邻居领取物品后未及时更新状态，请大家在领取物品后及时标记为「已取走」，以便物品赠送人了解情况。感谢您的配合与支持！",
+                    "志愿者李阿姨",
+                    "2026-03-08 10:15:00",
+                    0,
+                ),
+                (
+                    "春季衣物捐赠活动持续进行中",
+                    "春季衣物捐赠活动仍在进行，如有干净整洁的换季衣物需要捐赠，可送至物业前台。所有衣物将统一整理后捐赠给有需要的家庭。",
+                    "物业管理员小王",
+                    "2026-03-05 16:00:00",
+                    0,
+                ),
+                (
+                    "闲置数码物品赠送提醒",
+                    "目前平台上有少量闲置数码物品（键盘、鼠标等）等待领取，有需要的居民朋友可在「赠送记录」页面查看详情。先到先得哦！",
+                    "热心邻居老刘",
+                    "2026-03-12 11:20:00",
+                    0,
+                ),
+            ]
+            conn.executemany(
+                """
+                INSERT INTO announcements
+                    (title, content, publisher_nickname, publish_time, is_pinned)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                seed_announcements,
             )
         conn.commit()
     finally:

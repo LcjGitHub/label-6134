@@ -11,13 +11,16 @@ import GiftStats from './components/GiftStats.vue'
 import NoteModal from './components/NoteModal.vue'
 import VolunteerList from './components/VolunteerList.vue'
 import VolunteerFormModal from './components/VolunteerFormModal.vue'
+import AnnouncementList from './components/AnnouncementList.vue'
+import AnnouncementFormModal from './components/AnnouncementFormModal.vue'
 import type { Gift } from './types/gift'
 import type { Category } from './types/category'
 import type { Volunteer } from './types/volunteer'
+import type { Announcement } from './types/announcement'
 
 const message = useMessage()
 
-const activeTab = ref<'gifts' | 'categories' | 'reservations' | 'volunteers' | 'stats'>('gifts')
+const activeTab = ref<'gifts' | 'categories' | 'reservations' | 'volunteers' | 'announcements' | 'stats'>('gifts')
 
 const giftListRef = ref<InstanceType<typeof GiftList> | null>(null)
 const showGiftModal = ref(false)
@@ -33,6 +36,10 @@ const showReservationModal = ref(false)
 const volunteerListRef = ref<InstanceType<typeof VolunteerList> | null>(null)
 const showVolunteerModal = ref(false)
 const editingVolunteer = ref<Volunteer | null>(null)
+
+const announcementListRef = ref<InstanceType<typeof AnnouncementList> | null>(null)
+const showAnnouncementModal = ref(false)
+const editingAnnouncement = ref<Announcement | null>(null)
 
 const noteModalVisible = ref(false)
 const noteModalGiftId = ref<number | null>(null)
@@ -122,6 +129,28 @@ function handleVolunteerDeleted(): void {
   message.success('志愿者已删除')
 }
 
+function handleCreateAnnouncement(): void {
+  editingAnnouncement.value = null
+  showAnnouncementModal.value = true
+}
+
+function handleEditAnnouncement(announcement: Announcement): void {
+  editingAnnouncement.value = announcement
+  showAnnouncementModal.value = true
+}
+
+function handleAnnouncementSaved(): void {
+  const isEdit = editingAnnouncement.value !== null
+  showAnnouncementModal.value = false
+  announcementListRef.value?.reload()
+  message.success(isEdit ? '公告已更新' : '公告已发布')
+}
+
+function handleAnnouncementDeleted(): void {
+  announcementListRef.value?.reload()
+  message.success('公告已删除')
+}
+
 function handleViewNotes(gift: Gift): void {
   noteModalGiftId.value = gift.id
   noteModalItemName.value = gift.item_name
@@ -176,6 +205,13 @@ watch(activeTab, (newTab) => {
       >
         新增志愿者
       </n-button>
+      <n-button
+        v-else-if="activeTab === 'announcements'"
+        type="primary"
+        @click="handleCreateAnnouncement"
+      >
+        发布公告
+      </n-button>
     </header>
 
     <main class="page-main">
@@ -208,6 +244,13 @@ watch(activeTab, (newTab) => {
             @deleted="handleVolunteerDeleted"
           />
         </n-tab-pane>
+        <n-tab-pane name="announcements" tab="社区公告">
+          <AnnouncementList
+            ref="announcementListRef"
+            @edit="handleEditAnnouncement"
+            @deleted="handleAnnouncementDeleted"
+          />
+        </n-tab-pane>
         <n-tab-pane name="stats" tab="统计概览">
           <GiftStats :key="statsKey" />
         </n-tab-pane>
@@ -235,6 +278,12 @@ watch(activeTab, (newTab) => {
       v-model:show="showVolunteerModal"
       :volunteer="editingVolunteer"
       @saved="handleVolunteerSaved"
+    />
+
+    <AnnouncementFormModal
+      v-model:show="showAnnouncementModal"
+      :announcement="editingAnnouncement"
+      @saved="handleAnnouncementSaved"
     />
 
     <NoteModal
