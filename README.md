@@ -19,13 +19,18 @@
 ## 目录结构
 
 ```
-├── backend/          # Flask API
+├── .github/
+│   └── workflows/
+│       └── ci.yml       # 持续集成流水线
+├── backend/             # Flask API
 │   ├── app.py
 │   ├── requirements.txt
-│   └── data/         # SQLite 数据库（自动生成）
-└── frontend/         # Vue 3 前端
-    ├── package.json
-    └── src/
+│   └── data/            # SQLite 数据库（自动生成）
+├── frontend/            # Vue 3 前端
+│   ├── package.json
+│   └── src/
+└── scripts/
+    └── health_check.sh  # 后端接口健康检查脚本
 ```
 
 ## 启动方式
@@ -117,6 +122,43 @@ npm run dev
 - 响应体为 UTF-8 BOM 开头的 CSV 文本文件，浏览器会触发下载
 - 文件名格式：`gift_records_YYYYMMDD_HHmmss.csv`
 - CSV 列顺序：物品名、描述、赠送日期、接收方昵称、是否已取走
+
+## 持续集成（CI）
+
+项目配置了 GitHub Actions 持续集成流水线（`.github/workflows/ci.yml`），在 **推送到 `main` 分支** 或 **向 `main` 发起 Pull Request** 时自动运行。
+
+### 流水线内容
+
+| 阶段 | 检查项 | 说明 |
+|------|--------|------|
+| 后端检查 | 依赖安装 | `pip install -r requirements.txt` |
+| 后端检查 | 接口健康检查 | 启动 Flask 服务后请求 `/api/health`，验证返回正常 |
+| 前端检查 | 依赖安装 | `npm ci`（基于 `package-lock.json` 做确定性安装） |
+| 前端检查 | TypeScript 类型检查 | `vue-tsc --noEmit` |
+| 前端检查 | 生产构建 | `npm run build` |
+
+任一环节失败，流水线会标记为失败并在 PR 页面显示红叉。
+
+### 本地等价命令
+
+如需在本地手动执行与 CI 相同的检查，可运行以下命令：
+
+**后端：**
+```bash
+cd backend
+pip install -r requirements.txt
+bash ../scripts/health_check.sh 6000
+```
+
+**前端：**
+```bash
+cd frontend
+npm ci
+npx vue-tsc --noEmit
+npm run build
+```
+
+> 提示：本地运行健康检查脚本前，请确保 6000 端口未被占用。脚本会自动启动并停止 Flask 服务。
 
 ## 环境要求
 
