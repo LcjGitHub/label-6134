@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 from flask import Blueprint, jsonify, request, make_response
 
-from db import get_db, row_to_gift, generate_verification_code
+from db import get_db, row_to_gift, generate_verification_code, add_flow_history
 
 gifts_bp = Blueprint("gifts", __name__)
 
@@ -111,6 +111,9 @@ def create_gift():
             """,
             (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, location, verification_code),
         )
+        new_id = cursor.lastrowid
+        operator = donor_nickname or recipient_nickname or "系统"
+        add_flow_history(conn, new_id, "create", operator, f"创建赠送记录「{item_name}」")
         conn.commit()
         row = conn.execute(
             """
@@ -198,6 +201,8 @@ def update_gift(gift_id: int):
             """,
             (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, location, new_verification_code, gift_id),
         )
+        operator = donor_nickname or recipient_nickname or "系统"
+        add_flow_history(conn, gift_id, "edit", operator, f"编辑赠送记录「{item_name}」")
         conn.commit()
         row = conn.execute(
             """
@@ -297,6 +302,9 @@ def mark_gift_taken(gift_id: int):
             "UPDATE gifts SET is_taken = 1, verification_code = NULL WHERE id = ?",
             (gift_id,),
         )
+        item_row = conn.execute("SELECT item_name FROM gifts WHERE id = ?", (gift_id,)).fetchone()
+        item_name = item_row["item_name"] if item_row else ""
+        add_flow_history(conn, gift_id, "mark_taken", "领取人", f"标记物品「{item_name}」为已取走")
         conn.commit()
         row = conn.execute(
             """

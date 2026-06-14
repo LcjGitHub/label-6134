@@ -25,6 +25,7 @@ import {
 } from '../api/gift'
 import type { Gift } from '../types/gift'
 import GiftSummaryCards from './GiftSummaryCards.vue'
+import FlowHistoryModal from './FlowHistoryModal.vue'
 
 const emit = defineEmits<{
   edit: [gift: Gift]
@@ -218,6 +219,16 @@ function openMarkTakenModal(gift: Gift): void {
   markTakenModalVisible.value = true
 }
 
+const flowHistoryVisible = ref(false)
+const flowHistoryGiftId = ref<number | null>(null)
+const flowHistoryItemName = ref('')
+
+function openFlowHistory(gift: Gift): void {
+  flowHistoryGiftId.value = gift.id
+  flowHistoryItemName.value = gift.item_name
+  flowHistoryVisible.value = true
+}
+
 async function confirmMarkTakenSubmit(): Promise<void> {
   if (!markTakenGift.value) return
   const code = markTakenCode.value.trim()
@@ -286,7 +297,7 @@ const columns = computed<DataTableColumns<Gift>>(() => [
   {
     title: '操作',
     key: 'actions',
-    width: 380,
+    width: 460,
     render: (row) =>
       h('div', { class: 'actions' }, [
         !row.is_taken
@@ -331,6 +342,19 @@ const columns = computed<DataTableColumns<Gift>>(() => [
             },
           },
           { default: () => '查看备注' },
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            quaternary: true,
+            type: 'default',
+            onClick: (e: MouseEvent) => {
+              e.stopPropagation()
+              openFlowHistory(row)
+            },
+          },
+          { default: () => '流转历史' },
         ),
         h(
           NButton,
@@ -535,6 +559,12 @@ defineExpose({ reload })
         </div>
       </template>
     </n-modal>
+
+    <FlowHistoryModal
+      v-model:show="flowHistoryVisible"
+      :gift-id="flowHistoryGiftId"
+      :gift-item-name="flowHistoryItemName"
+    />
   </n-spin>
 </template>
 

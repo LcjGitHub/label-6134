@@ -3,6 +3,8 @@ import random
 import sqlite3
 from pathlib import Path
 
+from datetime import date, datetime
+
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = Path(os.environ.get("GIFT_DB_PATH", str(DATA_DIR / "gift.db")))
@@ -77,6 +79,27 @@ def row_to_volunteer(row: sqlite3.Row) -> dict:
         "register_date": row["register_date"],
         "is_active": bool(row["is_active"]),
     }
+
+
+def row_to_flow_history(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "gift_id": row["gift_id"],
+        "action_type": row["action_type"],
+        "operator_nickname": row["operator_nickname"],
+        "operated_at": row["operated_at"],
+        "description": row["description"],
+    }
+
+
+def add_flow_history(conn: sqlite3.Connection, gift_id: int, action_type: str, operator_nickname: str, description: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO gift_flow_history (gift_id, action_type, operator_nickname, operated_at, description)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (gift_id, action_type, operator_nickname, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), description),
+    )
 
 
 def row_to_announcement(row: sqlite3.Row) -> dict:
@@ -170,6 +193,20 @@ def init_db() -> None:
                 publisher_nickname TEXT NOT NULL DEFAULT '',
                 publish_time TEXT NOT NULL,
                 is_pinned INTEGER NOT NULL DEFAULT 0
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS gift_flow_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                gift_id INTEGER NOT NULL,
+                action_type TEXT NOT NULL,
+                operator_nickname TEXT NOT NULL DEFAULT '',
+                operated_at TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY (gift_id) REFERENCES gifts(id) ON DELETE CASCADE
             )
             """
         )

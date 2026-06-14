@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 from db import (
     get_db,
     row_to_reservation,
+    add_flow_history,
     RESERVATION_STATUS_PENDING,
     RESERVATION_STATUS_CONFIRMED,
     RESERVATION_STATUS_CANCELLED,
@@ -136,6 +137,23 @@ def cancel_reservation(resv_id: int):
             "UPDATE reservations SET status = ? WHERE id = ?",
             (RESERVATION_STATUS_CANCELLED, resv_id),
         )
+        resv_row = conn.execute(
+            """
+            SELECT r.gift_id, r.reserver_nickname, g.item_name AS gift_item_name
+            FROM reservations r
+            LEFT JOIN gifts g ON r.gift_id = g.id
+            WHERE r.id = ?
+            """,
+            (resv_id,),
+        ).fetchone()
+        if resv_row and resv_row["gift_id"]:
+            add_flow_history(
+                conn,
+                resv_row["gift_id"],
+                "cancel_reservation",
+                resv_row["reserver_nickname"] or "未知",
+                f"取消物品「{resv_row['gift_item_name'] or '未知'}」的预约",
+            )
         conn.commit()
         row = conn.execute(
             """
