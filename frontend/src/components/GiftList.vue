@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
 import { NButton, NDescriptions, NDescriptionsItem, NModal, NSpace, useDialog, useMessage } from 'naive-ui'
-import { deleteGift, fetchGifts, markGiftTaken, type GiftQueryParams } from '../api/gift'
+import { deleteGift, exportGifts, fetchGifts, markGiftTaken, type GiftQueryParams } from '../api/gift'
 import type { Gift } from '../types/gift'
 import GiftSummaryCards from './GiftSummaryCards.vue'
 
@@ -65,6 +65,47 @@ watch(isTakenFilter, () => {
 function resetFilters(): void {
   searchKeyword.value = ''
   isTakenFilter.value = ''
+}
+
+const isExporting = ref(false)
+
+function buildExportParams(): GiftQueryParams {
+  const params: GiftQueryParams = {}
+  if (searchKeyword.value.trim()) {
+    params.item_name = searchKeyword.value.trim()
+  }
+  if (isTakenFilter.value !== '') {
+    params.is_taken = isTakenFilter.value
+  }
+  return params
+}
+
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+async function handleExport(): Promise<void> {
+  if (isExporting.value) return
+  isExporting.value = true
+  try {
+    const blob = await exportGifts(buildExportParams())
+    const timestamp = format(new Date(), 'yyyyMMdd_HHmmss')
+    const filename = `gift_records_${timestamp}.csv`
+    triggerDownload(blob, filename)
+    message.success('导出成功')
+  } catch (e: any) {
+    const msg = e?.response?.data?.error || '导出失败，请重试'
+    message.error(msg)
+  } finally {
+    isExporting.value = false
+  }
 }
 
 const detailVisible = ref(false)
@@ -255,6 +296,15 @@ defineExpose({ reload })
         size="small"
       />
       <n-button size="small" @click="resetFilters">重置</n-button>
+      <n-button
+        size="small"
+        type="primary"
+        :loading="isExporting"
+        :disabled="isLoading"
+        @click="handleExport"
+      >
+        {{ isExporting ? '导出中...' : '导出表格' }}
+      </n-button>
     </n-space>
 
     <n-data-table

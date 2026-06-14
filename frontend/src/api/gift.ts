@@ -51,3 +51,12 @@ export async function fetchGiftSummary(): Promise<GiftSummary> {
   const { data } = await api.get<GiftSummary>('/gifts/summary')
   return data
 }
+
+/** 导出赠送记录为CSV文件 */
+export async function exportGifts(params?: GiftQueryParams): Promise<Blob> {
+  const { data } = await api.get('/gifts/export', {
+    params,
+    responseType: 'blob',
+  })
+  return data
+}
