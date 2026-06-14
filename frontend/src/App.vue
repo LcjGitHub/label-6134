@@ -13,14 +13,17 @@ import VolunteerList from './components/VolunteerList.vue'
 import VolunteerFormModal from './components/VolunteerFormModal.vue'
 import AnnouncementList from './components/AnnouncementList.vue'
 import AnnouncementFormModal from './components/AnnouncementFormModal.vue'
+import LocationList from './components/LocationList.vue'
+import LocationFormModal from './components/LocationFormModal.vue'
 import type { Gift } from './types/gift'
 import type { Category } from './types/category'
 import type { Volunteer } from './types/volunteer'
 import type { Announcement } from './types/announcement'
+import type { Location } from './types/location'
 
 const message = useMessage()
 
-const activeTab = ref<'gifts' | 'categories' | 'reservations' | 'volunteers' | 'announcements' | 'stats'>('gifts')
+const activeTab = ref<'gifts' | 'categories' | 'locations' | 'reservations' | 'volunteers' | 'announcements' | 'stats'>('gifts')
 
 const giftListRef = ref<InstanceType<typeof GiftList> | null>(null)
 const showGiftModal = ref(false)
@@ -40,6 +43,10 @@ const editingVolunteer = ref<Volunteer | null>(null)
 const announcementListRef = ref<InstanceType<typeof AnnouncementList> | null>(null)
 const showAnnouncementModal = ref(false)
 const editingAnnouncement = ref<Announcement | null>(null)
+
+const locationListRef = ref<InstanceType<typeof LocationList> | null>(null)
+const showLocationModal = ref(false)
+const editingLocation = ref<Location | null>(null)
 
 const noteModalVisible = ref(false)
 const noteModalGiftId = ref<number | null>(null)
@@ -151,6 +158,28 @@ function handleAnnouncementDeleted(): void {
   message.success('公告已删除')
 }
 
+function handleCreateLocation(): void {
+  editingLocation.value = null
+  showLocationModal.value = true
+}
+
+function handleEditLocation(location: Location): void {
+  editingLocation.value = location
+  showLocationModal.value = true
+}
+
+function handleLocationSaved(): void {
+  const isEdit = editingLocation.value !== null
+  showLocationModal.value = false
+  locationListRef.value?.reload()
+  message.success(isEdit ? '地点已更新' : '地点已创建')
+}
+
+function handleLocationDeleted(): void {
+  locationListRef.value?.reload()
+  message.success('地点已删除')
+}
+
 function handleViewNotes(gift: Gift): void {
   noteModalGiftId.value = gift.id
   noteModalItemName.value = gift.item_name
@@ -212,6 +241,13 @@ watch(activeTab, (newTab) => {
       >
         发布公告
       </n-button>
+      <n-button
+        v-else-if="activeTab === 'locations'"
+        type="primary"
+        @click="handleCreateLocation"
+      >
+        新增地点
+      </n-button>
     </header>
 
     <main class="page-main">
@@ -229,6 +265,13 @@ watch(activeTab, (newTab) => {
             ref="categoryListRef"
             @edit="handleEditCategory"
             @deleted="handleCategoryDeleted"
+          />
+        </n-tab-pane>
+        <n-tab-pane name="locations" tab="地点管理">
+          <LocationList
+            ref="locationListRef"
+            @edit="handleEditLocation"
+            @deleted="handleLocationDeleted"
           />
         </n-tab-pane>
         <n-tab-pane name="reservations" tab="领取预约">
@@ -284,6 +327,12 @@ watch(activeTab, (newTab) => {
       v-model:show="showAnnouncementModal"
       :announcement="editingAnnouncement"
       @saved="handleAnnouncementSaved"
+    />
+
+    <LocationFormModal
+      v-model:show="showLocationModal"
+      :location="editingLocation"
+      @saved="handleLocationSaved"
     />
 
     <NoteModal

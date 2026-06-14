@@ -5,7 +5,9 @@ import { useMessage } from 'naive-ui'
 import type { FormInst, FormRules, SelectOption } from 'naive-ui'
 import { createGift, updateGift } from '../api/gift'
 import { fetchCategories } from '../api/category'
+import { fetchLocations } from '../api/location'
 import type { Category } from '../types/category'
+import type { Location } from '../types/location'
 import type { Gift, GiftFormData } from '../types/gift'
 
 const props = defineProps<{
@@ -24,6 +26,8 @@ const formRef = ref<FormInst | null>(null)
 const submitting = ref(false)
 const categories = ref<Category[]>([])
 const categoriesLoading = ref(false)
+const locations = ref<Location[]>([])
+const locationsLoading = ref(false)
 
 const isEdit = computed(() => props.gift !== null)
 
@@ -31,6 +35,13 @@ const categoryOptions = computed<SelectOption[]>(() =>
   categories.value.map((c) => ({
     label: c.name,
     value: c.id,
+  })),
+)
+
+const locationOptions = computed<SelectOption[]>(() =>
+  locations.value.map((l) => ({
+    label: l.name,
+    value: l.name,
   })),
 )
 
@@ -79,11 +90,24 @@ async function loadCategories(): Promise<void> {
   }
 }
 
+async function loadLocations(): Promise<void> {
+  locationsLoading.value = true
+  try {
+    locations.value = await fetchLocations()
+  } catch (e: any) {
+    const msg = e?.response?.data?.error || '网络异常，地点列表加载失败'
+    message.error(msg)
+  } finally {
+    locationsLoading.value = false
+  }
+}
+
 watch(
   () => props.show,
   async (visible) => {
     if (!visible) return
     await loadCategories()
+    await loadLocations()
     if (props.gift) {
       formModel.value = {
         item_name: props.gift.item_name,
@@ -197,9 +221,14 @@ async function handleSubmit(): Promise<void> {
       </n-form-item>
 
       <n-form-item label="赠送地点" path="location">
-        <n-input
+        <n-select
           v-model:value="formModel.location"
-          placeholder="例如：楼道口、物业前台、菜鸟驿站"
+          :options="locationOptions"
+          :loading="locationsLoading"
+          placeholder="请选择或输入地点"
+          filterable
+          tag
+          clearable
         />
       </n-form-item>
 

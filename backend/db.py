@@ -102,6 +102,14 @@ def add_flow_history(conn: sqlite3.Connection, gift_id: int, action_type: str, o
     )
 
 
+def row_to_location(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "sort_order": row["sort_order"],
+    }
+
+
 def row_to_announcement(row: sqlite3.Row) -> dict:
     return {
         "id": row["id"],
@@ -180,6 +188,16 @@ def init_db() -> None:
                 skill_category TEXT NOT NULL DEFAULT '',
                 register_date TEXT NOT NULL,
                 is_active INTEGER NOT NULL DEFAULT 1
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS locations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0
             )
             """
         )
@@ -408,6 +426,21 @@ def init_db() -> None:
                 """,
                 seed_announcements,
             )
+
+        loc_count = conn.execute("SELECT COUNT(*) FROM locations").fetchone()[0]
+        if loc_count == 0:
+            seed_locations = [
+                ("楼道口", 1),
+                ("物业前台", 2),
+                ("菜鸟驿站", 3),
+                ("社区活动中心", 4),
+                ("小区大门岗亭", 5),
+            ]
+            conn.executemany(
+                "INSERT INTO locations (name, sort_order) VALUES (?, ?)",
+                seed_locations,
+            )
+
         conn.commit()
     finally:
         conn.close()
