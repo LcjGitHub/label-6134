@@ -79,12 +79,19 @@ npm run dev
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/gifts` | 获取全部记录 |
+| GET | `/api/gifts` | 获取赠送记录列表（支持查询参数，见下方） |
 | GET | `/api/gifts/:id` | 获取单条记录 |
 | POST | `/api/gifts` | 新建记录 |
 | PUT | `/api/gifts/:id` | 更新记录 |
 | DELETE | `/api/gifts/:id` | 删除记录 |
 | GET | `/api/health` | 健康检查 |
+
+**GET `/api/gifts` 可选查询参数：**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `item_name` | string | 按物品名关键字模糊查询，不传则不过滤 |
+| `is_taken` | int | 按是否已取走筛选：`1` 已取走，`0` 待取走，不传则不过滤 |
 
 ## 环境要求
 

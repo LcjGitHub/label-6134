@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref, watch } from 'vue'
-import { useAsyncState } from '@vueuse/core'
+import { useAsyncState, watchDebounced } from '@vueuse/core'
 import { format, parseISO } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
@@ -43,7 +43,11 @@ const {
   execute: reload,
 } = useAsyncState(loadGifts, [], { immediate: false })
 
-watch([searchKeyword, isTakenFilter], () => {
+watchDebounced(searchKeyword, () => {
+  reload()
+}, { debounce: 300 })
+
+watch(isTakenFilter, () => {
   reload()
 })
 
