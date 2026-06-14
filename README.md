@@ -85,6 +85,7 @@ npm run dev
 | PUT | `/api/gifts/:id` | 更新记录 |
 | PUT | `/api/gifts/:id/mark-taken` | 快捷标记指定记录为已取走（无需提交完整表单） |
 | DELETE | `/api/gifts/:id` | 删除记录 |
+| GET | `/api/gifts/summary` | 轻量汇总统计（总记录数、已取走数、待取走数），返回字段见下方 |
 | GET | `/api/health` | 健康检查 |
 
 **GET `/api/gifts` 可选查询参数：**
@@ -93,6 +94,14 @@ npm run dev
 |------|------|------|
 | `item_name` | string | 按物品名关键字模糊查询，不传则不过滤 |
 | `is_taken` | int | 按是否已取走筛选：`1` 已取走，`0` 待取走，不传则不过滤 |
+
+**GET `/api/gifts/summary` 返回字段：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `total_count` | int | 赠送记录总条数 |
+| `taken_count` | int | 已标记为取走的记录条数 |
+| `pending_count` | int | 待取走的记录条数（= 总条数 - 已取走数） |
 
 ## 环境要求
 

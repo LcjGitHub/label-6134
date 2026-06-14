@@ -55,11 +55,11 @@ async function reload(): Promise<void> {
 }
 
 watchDebounced(searchKeyword, () => {
-  reload()
+  reloadList()
 }, { debounce: 300 })
 
 watch(isTakenFilter, () => {
-  reload()
+  reloadList()
 })
 
 function resetFilters(): void {
@@ -209,7 +209,6 @@ function confirmDelete(gift: Gift): void {
     onPositiveClick: async () => {
       await deleteGift(gift.id)
       emit('deleted')
-      await reload()
     },
   })
 }
