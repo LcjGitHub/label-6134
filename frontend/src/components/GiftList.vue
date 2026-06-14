@@ -4,8 +4,25 @@ import { useAsyncState, watchDebounced } from '@vueuse/core'
 import { format, parseISO } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
-import { NButton, NDescriptions, NDescriptionsItem, NModal, NSpace, useDialog, useMessage } from 'naive-ui'
-import { deleteGift, exportGifts, fetchGifts, markGiftTaken, type GiftQueryParams } from '../api/gift'
+import {
+  NButton,
+  NDescriptions,
+  NDescriptionsItem,
+  NInput,
+  NModal,
+  NSpace,
+  useDialog,
+  useMessage,
+} from 'naive-ui'
+import {
+  deleteGift,
+  exportGifts,
+  fetchGifts,
+  getVerificationCode,
+  markGiftTaken,
+  regenerateVerificationCode,
+  type GiftQueryParams,
+} from '../api/gift'
 import type { Gift } from '../types/gift'
 import GiftSummaryCards from './GiftSummaryCards.vue'
 
@@ -141,6 +158,92 @@ function showNotes(gift: Gift): void {
   emit('view-notes', gift)
 }
 
+const codeModalVisible = ref(false)
+const codeModalGift = ref<Gift | null>(null)
+const currentCode = ref('')
+const codeLoading = ref(false)
+const regenerateLoading = ref(false)
+
+async function openCodeModal(gift: Gift): Promise<void> {
+  codeModalGift.value = gift
+  codeModalVisible.value = true
+  currentCode.value = ''
+  codeLoading.value = true
+  try {
+    const result = await getVerificationCode(gift.id)
+    currentCode.value = result.verification_code
+  } catch (e: any) {
+    const msg = e?.response?.data?.error || '获取验证码失败'
+    message.error(msg)
+    codeModalVisible.value = false
+  } finally {
+    codeLoading.value = false
+  }
+}
+
+async function handleRegenerateCode(): Promise<void> {
+  if (!codeModalGift.value) return
+  regenerateLoading.value = true
+  try {
+    const result = await regenerateVerificationCode(codeModalGift.value.id)
+    currentCode.value = result.verification_code
+    message.success('验证码已重新生成')
+  } catch (e: any) {
+    const msg = e?.response?.data?.error || '重新生成失败'
+    message.error(msg)
+  } finally {
+    regenerateLoading.value = false
+  }
+}
+
+function copyCode(): void {
+  if (!currentCode.value) return
+  navigator.clipboard.writeText(currentCode.value)
+    .then(() => {
+      message.success('验证码已复制')
+    })
+    .catch(() => {
+      message.error('复制失败，请手动复制')
+    })
+}
+
+const markTakenModalVisible = ref(false)
+const markTakenGift = ref<Gift | null>(null)
+const markTakenCode = ref('')
+const markTakenLoading = ref(false)
+
+function openMarkTakenModal(gift: Gift): void {
+  markTakenGift.value = gift
+  markTakenCode.value = ''
+  markTakenModalVisible.value = true
+}
+
+async function confirmMarkTakenSubmit(): Promise<void> {
+  if (!markTakenGift.value) return
+  const code = markTakenCode.value.trim()
+  if (!code) {
+    message.warning('请输入验证码')
+    return
+  }
+  if (!/^\d{6}$/.test(code)) {
+    message.warning('验证码必须是6位数字')
+    return
+  }
+
+  markTakenLoading.value = true
+  try {
+    await markGiftTaken(markTakenGift.value.id, code)
+    message.success('已标记为取走')
+    markTakenModalVisible.value = false
+    await reload()
+  } catch (e: any) {
+    const msg = e?.response?.data?.error || '标记失败，请重试'
+    message.error(msg)
+  } finally {
+    markTakenLoading.value = false
+  }
+}
+
 const columns = computed<DataTableColumns<Gift>>(() => [
   { title: '物品名', key: 'item_name', width: 140, ellipsis: { tooltip: true } },
   {
@@ -183,7 +286,7 @@ const columns = computed<DataTableColumns<Gift>>(() => [
   {
     title: '操作',
     key: 'actions',
-    width: 300,
+    width: 380,
     render: (row) =>
       h('div', { class: 'actions' }, [
         !row.is_taken
@@ -195,10 +298,25 @@ const columns = computed<DataTableColumns<Gift>>(() => [
                 type: 'success',
                 onClick: (e: MouseEvent) => {
                   e.stopPropagation()
-                  confirmMarkTaken(row)
+                  openMarkTakenModal(row)
                 },
               },
               { default: () => '标记已取走' },
+            )
+          : null,
+        !row.is_taken
+          ? h(
+              NButton,
+              {
+                size: 'small',
+                quaternary: true,
+                type: 'warning',
+                onClick: (e: MouseEvent) => {
+                  e.stopPropagation()
+                  openCodeModal(row)
+                },
+              },
+              { default: () => '查看验证码' },
             )
           : null,
         h(
@@ -243,26 +361,6 @@ const columns = computed<DataTableColumns<Gift>>(() => [
       ].filter(Boolean)),
   },
 ])
-
-function confirmMarkTaken(gift: Gift): void {
-  dialog.warning({
-    title: '确认标记已取走',
-    content: `确定将「${gift.item_name}」标记为已取走吗？`,
-    positiveText: '确认',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      try {
-        await markGiftTaken(gift.id)
-        message.success('已标记为取走')
-        await reload()
-      } catch (e: any) {
-        const msg = e?.response?.data?.error || '标记失败，请重试'
-        message.error(msg)
-        return false
-      }
-    },
-  })
-}
 
 function confirmDelete(gift: Gift): void {
   dialog.warning({
@@ -376,6 +474,67 @@ defineExpose({ reload })
         </div>
       </template>
     </n-modal>
+
+    <n-modal
+      v-model:show="codeModalVisible"
+      preset="card"
+      title="领取验证码"
+      style="width: 420px"
+      :mask-closable="true"
+    >
+      <n-spin :show="codeLoading">
+        <div class="code-modal-content">
+          <p class="code-tip">请将以下验证码告知领取人，用于核验领取身份。</p>
+          <div class="code-display">
+            <span class="code-text">{{ currentCode }}</span>
+          </div>
+          <n-space justify="center" style="margin-top: 16px">
+            <n-button type="primary" @click="copyCode">
+              复制验证码
+            </n-button>
+            <n-button :loading="regenerateLoading" @click="handleRegenerateCode">
+              重新生成
+            </n-button>
+          </n-space>
+        </div>
+      </n-spin>
+      <template #footer>
+        <div class="detail-footer">
+          <n-button @click="codeModalVisible = false">关闭</n-button>
+        </div>
+      </template>
+    </n-modal>
+
+    <n-modal
+      v-model:show="markTakenModalVisible"
+      preset="card"
+      title="标记已取走"
+      style="width: 420px"
+      :mask-closable="true"
+    >
+      <div class="mark-taken-content">
+        <p>请输入领取人提供的 6 位数字验证码，以完成核验。</p>
+        <p v-if="markTakenGift" class="mark-taken-item">
+          物品：<strong>{{ markTakenGift.item_name }}</strong>
+        </p>
+        <n-input
+          v-model:value="markTakenCode"
+          placeholder="请输入6位数字验证码"
+          maxlength="6"
+          size="large"
+          style="margin-top: 16px; text-align: center; font-size: 20px; letter-spacing: 8px;"
+          @keyup.enter="confirmMarkTakenSubmit"
+        />
+      </div>
+      <template #footer>
+        <div class="detail-footer">
+          <n-button @click="markTakenModalVisible = false">取消</n-button>
+          <n-button type="primary" :loading="markTakenLoading" @click="confirmMarkTakenSubmit">
+            确认取走
+          </n-button>
+        </div>
+      </template>
+    </n-modal>
   </n-spin>
 </template>
 
@@ -420,10 +579,57 @@ defineExpose({ reload })
 .detail-footer {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
 }
 
 .filter-label {
   font-size: 14px;
   color: #666;
+}
+
+.code-modal-content {
+  text-align: center;
+  padding: 12px 0;
+}
+
+.code-tip {
+  color: #666;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.code-display {
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 0 auto;
+  width: fit-content;
+}
+
+.code-text {
+  font-size: 36px;
+  font-weight: bold;
+  letter-spacing: 8px;
+  color: #18a058;
+  font-family: 'Courier New', monospace;
+}
+
+.mark-taken-content {
+  padding: 8px 0;
+}
+
+.mark-taken-content p {
+  margin: 8px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.mark-taken-item {
+  font-size: 15px !important;
+  color: #333 !important;
+}
+
+.mark-taken-item strong {
+  color: #18a058;
 }
 </style>

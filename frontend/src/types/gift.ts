@@ -10,6 +10,7 @@ export interface Gift {
   donor_nickname: string
   donor_phone: string
   location: string
+  verification_code: string | null
 }
 
 export interface GiftFormData {

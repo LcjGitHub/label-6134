@@ -35,8 +35,22 @@ export async function deleteGift(id: number): Promise<void> {
 }
 
 /** 快捷标记为已取走 */
-export async function markGiftTaken(id: number): Promise<Gift> {
-  const { data } = await api.put<Gift>(`/gifts/${id}/mark-taken`)
+export async function markGiftTaken(id: number, verificationCode?: string): Promise<Gift> {
+  const { data } = await api.put<Gift>(`/gifts/${id}/mark-taken`, {
+    verification_code: verificationCode,
+  })
+  return data
+}
+
+/** 获取验证码 */
+export async function getVerificationCode(id: number): Promise<{ verification_code: string }> {
+  const { data } = await api.get<{ verification_code: string }>(`/gifts/${id}/verification-code`)
+  return data
+}
+
+/** 重新生成验证码 */
+export async function regenerateVerificationCode(id: number): Promise<{ verification_code: string }> {
+  const { data } = await api.put<{ verification_code: string }>(`/gifts/${id}/verification-code`)
   return data
 }
 

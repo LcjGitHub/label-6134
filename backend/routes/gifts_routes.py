@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 from flask import Blueprint, jsonify, request, make_response
 
-from db import get_db, row_to_gift
+from db import get_db, row_to_gift, generate_verification_code
 
 gifts_bp = Blueprint("gifts", __name__)
 
@@ -101,13 +101,15 @@ def create_gift():
             if cat_exists is None:
                 category_id = None
 
+        verification_code = None if is_taken else generate_verification_code()
+
         cursor = conn.execute(
             """
             INSERT INTO gifts
-                (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, location)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, location, verification_code)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, location),
+            (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, location, verification_code),
         )
         conn.commit()
         row = conn.execute(
@@ -166,6 +168,19 @@ def update_gift(gift_id: int):
             if cat_exists is None:
                 category_id = None
 
+        existing_code_row = conn.execute(
+            "SELECT verification_code, is_taken FROM gifts WHERE id = ?",
+            (gift_id,),
+        ).fetchone()
+        old_is_taken = bool(existing_code_row["is_taken"])
+        old_code = existing_code_row["verification_code"]
+
+        new_verification_code = old_code
+        if not is_taken and not old_code:
+            new_verification_code = generate_verification_code()
+        elif is_taken:
+            new_verification_code = None
+
         conn.execute(
             """
             UPDATE gifts SET
@@ -177,10 +192,11 @@ def update_gift(gift_id: int):
                 category_id = ?,
                 donor_nickname = ?,
                 donor_phone = ?,
-                location = ?
+                location = ?,
+                verification_code = ?
             WHERE id = ?
             """,
-            (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, location, gift_id),
+            (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, location, new_verification_code, gift_id),
         )
         conn.commit()
         row = conn.execute(
@@ -256,10 +272,14 @@ def export_gifts():
 
 @gifts_bp.route("/api/gifts/<int:gift_id>/mark-taken", methods=["PUT"])
 def mark_gift_taken(gift_id: int):
+    data = request.get_json(silent=True) or {}
+    verification_code = (data.get("verification_code") or "").strip()
+
     conn = get_db()
     try:
         existing = conn.execute(
-            "SELECT id, is_taken FROM gifts WHERE id = ?", (gift_id,)
+            "SELECT id, is_taken, verification_code FROM gifts WHERE id = ?",
+            (gift_id,),
         ).fetchone()
         if existing is None:
             return jsonify({"error": "记录不存在"}), 404
@@ -267,8 +287,14 @@ def mark_gift_taken(gift_id: int):
         if bool(existing["is_taken"]):
             return jsonify({"error": "该物品已标记为取走，无需重复操作"}), 400
 
+        if not verification_code:
+            return jsonify({"error": "请输入验证码"}), 400
+
+        if existing["verification_code"] != verification_code:
+            return jsonify({"error": "验证码错误，请重新输入"}), 400
+
         conn.execute(
-            "UPDATE gifts SET is_taken = 1 WHERE id = ?",
+            "UPDATE gifts SET is_taken = 1, verification_code = NULL WHERE id = ?",
             (gift_id,),
         )
         conn.commit()
@@ -282,6 +308,60 @@ def mark_gift_taken(gift_id: int):
             (gift_id,),
         ).fetchone()
         return jsonify(row_to_gift(row))
+    finally:
+        conn.close()
+
+
+@gifts_bp.route("/api/gifts/<int:gift_id>/verification-code", methods=["GET"])
+def get_verification_code(gift_id: int):
+    conn = get_db()
+    try:
+        existing = conn.execute(
+            "SELECT id, is_taken, verification_code FROM gifts WHERE id = ?",
+            (gift_id,),
+        ).fetchone()
+        if existing is None:
+            return jsonify({"error": "记录不存在"}), 404
+
+        if bool(existing["is_taken"]):
+            return jsonify({"error": "该物品已取走，无验证码"}), 400
+
+        if not existing["verification_code"]:
+            code = generate_verification_code()
+            conn.execute(
+                "UPDATE gifts SET verification_code = ? WHERE id = ?",
+                (code, gift_id),
+            )
+            conn.commit()
+        else:
+            code = existing["verification_code"]
+
+        return jsonify({"verification_code": code})
+    finally:
+        conn.close()
+
+
+@gifts_bp.route("/api/gifts/<int:gift_id>/verification-code", methods=["PUT"])
+def regenerate_verification_code(gift_id: int):
+    conn = get_db()
+    try:
+        existing = conn.execute(
+            "SELECT id, is_taken FROM gifts WHERE id = ?", (gift_id,)
+        ).fetchone()
+        if existing is None:
+            return jsonify({"error": "记录不存在"}), 404
+
+        if bool(existing["is_taken"]):
+            return jsonify({"error": "该物品已取走，无法生成验证码"}), 400
+
+        code = generate_verification_code()
+        conn.execute(
+            "UPDATE gifts SET verification_code = ? WHERE id = ?",
+            (code, gift_id),
+        )
+        conn.commit()
+
+        return jsonify({"verification_code": code})
     finally:
         conn.close()
 

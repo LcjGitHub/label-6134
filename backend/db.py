@@ -1,10 +1,15 @@
 import os
+import random
 import sqlite3
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = Path(os.environ.get("GIFT_DB_PATH", str(DATA_DIR / "gift.db")))
+
+
+def generate_verification_code() -> str:
+    return f"{random.randint(0, 999999):06d}"
 
 RESERVATION_STATUS_PENDING = "pending"
 RESERVATION_STATUS_CONFIRMED = "confirmed"
@@ -38,6 +43,7 @@ def row_to_gift(row: sqlite3.Row) -> dict:
         "donor_nickname": row["donor_nickname"],
         "donor_phone": row["donor_phone"],
         "location": row["location"],
+        "verification_code": row["verification_code"] if "verification_code" in row.keys() else None,
     }
 
 
@@ -204,6 +210,20 @@ def init_db() -> None:
                 )
             conn.commit()
 
+        if "verification_code" not in existing_cols:
+            conn.execute("ALTER TABLE gifts ADD COLUMN verification_code TEXT DEFAULT NULL")
+            gift_rows = conn.execute(
+                "SELECT id, is_taken FROM gifts WHERE verification_code IS NULL"
+            ).fetchall()
+            for r in gift_rows:
+                if not bool(r["is_taken"]):
+                    code = generate_verification_code()
+                    conn.execute(
+                        "UPDATE gifts SET verification_code = ? WHERE id = ?",
+                        (code, r["id"]),
+                    )
+            conn.commit()
+
         cat_count = conn.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
         if cat_count == 0:
             seed_categories = [
@@ -233,14 +253,17 @@ def init_db() -> None:
                 ("冬季厚棉被", "8 斤重，已清洗晾晒", "2026-03-10", "社区志愿者", 0, cat_map.get("家居用品"), "退休教师陈奶奶", "13800138004", "物业前台"),
                 ("闲置键盘", "机械键盘青轴，部分键帽有磨损", "2026-03-12", "程序员小王", 0, cat_map.get("数码电子"), "IT工程师老刘", "13800138005", "菜鸟驿站"),
             ]
-            conn.executemany(
-                """
-                INSERT INTO gifts
-                    (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, location)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                seed_gifts,
-            )
+            for gift in seed_gifts:
+                is_taken = gift[4]
+                verification_code = None if is_taken else generate_verification_code()
+                conn.execute(
+                    """
+                    INSERT INTO gifts
+                        (item_name, description, gift_date, recipient_nickname, is_taken, category_id, donor_nickname, donor_phone, location, verification_code)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (*gift, verification_code),
+                )
             conn.commit()
 
         gift_rows = conn.execute("SELECT id, item_name FROM gifts ORDER BY id").fetchall()
