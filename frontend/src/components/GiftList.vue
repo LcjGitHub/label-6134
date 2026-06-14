@@ -291,14 +291,14 @@ defineExpose({ reload })
         <n-descriptions-item label="赠送日期">
           {{ formatGiftDate(currentGift.gift_date) }}
         </n-descriptions-item>
+        <n-descriptions-item label="赠送地点">
+          {{ currentGift.location || '（未填写）' }}
+        </n-descriptions-item>
         <n-descriptions-item label="赠送人昵称">
           {{ currentGift.donor_nickname || '（未填写）' }}
         </n-descriptions-item>
         <n-descriptions-item label="联系电话">
           {{ currentGift.donor_phone || '（未填写）' }}
-        </n-descriptions-item>
-        <n-descriptions-item label="赠送地点">
-          {{ currentGift.location || '（未填写）' }}
         </n-descriptions-item>
         <n-descriptions-item label="接收方昵称">
           {{ currentGift.recipient_nickname || '（未填写）' }}

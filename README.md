@@ -13,7 +13,7 @@
 
 - 赠送记录列表（`n-data-table`）
 - 新增 / 编辑弹窗表单（`n-form`）
-- 字段：物品名、描述、赠送日期、接收方昵称、是否已取走
+- 字段：物品名、描述、赠送日期、赠送地点、接收方昵称、赠送人昵称、联系电话、是否已取走
 - 首次启动自动写入 5 条 seed 数据
 
 ## 目录结构
@@ -79,10 +79,10 @@ npm run dev
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/gifts` | 获取赠送记录列表（支持查询参数，见下方） |
-| GET | `/api/gifts/:id` | 获取单条记录 |
-| POST | `/api/gifts` | 新建记录 |
-| PUT | `/api/gifts/:id` | 更新记录 |
+| GET | `/api/gifts` | 获取赠送记录列表（支持查询参数，见下方），返回包含 `location` 赠送地点字段 |
+| GET | `/api/gifts/:id` | 获取单条记录，返回包含 `location` 赠送地点字段 |
+| POST | `/api/gifts` | 新建记录，请求体及返回均包含 `location` 赠送地点字段 |
+| PUT | `/api/gifts/:id` | 更新记录，请求体及返回均包含 `location` 赠送地点字段 |
 | PUT | `/api/gifts/:id/mark-taken` | 快捷标记指定记录为已取走（无需提交完整表单） |
 | DELETE | `/api/gifts/:id` | 删除记录 |
 | GET | `/api/gifts/summary` | 轻量汇总统计（总记录数、已取走数、待取走数），返回字段见下方 |
