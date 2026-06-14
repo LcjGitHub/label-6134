@@ -83,6 +83,7 @@ npm run dev
 | GET | `/api/gifts/:id` | 获取单条记录 |
 | POST | `/api/gifts` | 新建记录 |
 | PUT | `/api/gifts/:id` | 更新记录 |
+| PUT | `/api/gifts/:id/mark-taken` | 快捷标记指定记录为已取走（无需提交完整表单） |
 | DELETE | `/api/gifts/:id` | 删除记录 |
 | GET | `/api/health` | 健康检查 |
 

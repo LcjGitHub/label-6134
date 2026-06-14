@@ -4,7 +4,7 @@ import { useAsyncState, watchDebounced } from '@vueuse/core'
 import { format, parseISO } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
-import { NButton, NDescriptions, NDescriptionsItem, NModal, NSpace, useDialog } from 'naive-ui'
+import { NButton, NDescriptions, NDescriptionsItem, NModal, NSpace, useDialog, useMessage } from 'naive-ui'
 import { deleteGift, fetchGifts, markGiftTaken, type GiftQueryParams } from '../api/gift'
 import type { Gift } from '../types/gift'
 
@@ -15,6 +15,7 @@ const emit = defineEmits<{
 }>()
 
 const dialog = useDialog()
+const message = useMessage()
 
 const searchKeyword = ref('')
 const isTakenFilter = ref<number | ''>('')
@@ -176,8 +177,15 @@ function confirmMarkTaken(gift: Gift): void {
     positiveText: '确认',
     negativeText: '取消',
     onPositiveClick: async () => {
-      await markGiftTaken(gift.id)
-      await reload()
+      try {
+        await markGiftTaken(gift.id)
+        message.success('已标记为取走')
+        await reload()
+      } catch (e: any) {
+        const msg = e?.response?.data?.error || '标记失败，请重试'
+        message.error(msg)
+        return false
+      }
     },
   })
 }
