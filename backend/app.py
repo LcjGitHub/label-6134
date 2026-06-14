@@ -531,6 +531,38 @@ def update_gift(gift_id: int):
         conn.close()
 
 
+@app.route("/api/gifts/<int:gift_id>/mark-taken", methods=["PUT"])
+def mark_gift_taken(gift_id: int):
+    conn = get_db()
+    try:
+        existing = conn.execute(
+            "SELECT id, is_taken FROM gifts WHERE id = ?", (gift_id,)
+        ).fetchone()
+        if existing is None:
+            return jsonify({"error": "记录不存在"}), 404
+
+        if bool(existing["is_taken"]):
+            return jsonify({"error": "该物品已标记为取走，无需重复操作"}), 400
+
+        conn.execute(
+            "UPDATE gifts SET is_taken = 1 WHERE id = ?",
+            (gift_id,),
+        )
+        conn.commit()
+        row = conn.execute(
+            """
+            SELECT g.*, c.name AS category_name
+            FROM gifts g
+            LEFT JOIN categories c ON g.category_id = c.id
+            WHERE g.id = ?
+            """,
+            (gift_id,),
+        ).fetchone()
+        return jsonify(row_to_gift(row))
+    finally:
+        conn.close()
+
+
 @app.route("/api/gifts/<int:gift_id>", methods=["DELETE"])
 def delete_gift(gift_id: int):
     conn = get_db()

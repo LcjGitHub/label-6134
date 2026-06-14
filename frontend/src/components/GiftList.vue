@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
 import { NButton, NDescriptions, NDescriptionsItem, NModal, NSpace, useDialog } from 'naive-ui'
-import { deleteGift, fetchGifts, type GiftQueryParams } from '../api/gift'
+import { deleteGift, fetchGifts, markGiftTaken, type GiftQueryParams } from '../api/gift'
 import type { Gift } from '../types/gift'
 
 const emit = defineEmits<{
@@ -108,9 +108,24 @@ const columns = computed<DataTableColumns<Gift>>(() => [
   {
     title: '操作',
     key: 'actions',
-    width: 220,
+    width: 300,
     render: (row) =>
       h('div', { class: 'actions' }, [
+        !row.is_taken
+          ? h(
+              NButton,
+              {
+                size: 'small',
+                quaternary: true,
+                type: 'success',
+                onClick: (e: MouseEvent) => {
+                  e.stopPropagation()
+                  confirmMarkTaken(row)
+                },
+              },
+              { default: () => '标记已取走' },
+            )
+          : null,
         h(
           NButton,
           {
@@ -150,9 +165,22 @@ const columns = computed<DataTableColumns<Gift>>(() => [
           },
           { default: () => '删除' },
         ),
-      ]),
+      ].filter(Boolean)),
   },
 ])
+
+function confirmMarkTaken(gift: Gift): void {
+  dialog.warning({
+    title: '确认标记已取走',
+    content: `确定将「${gift.item_name}」标记为已取走吗？`,
+    positiveText: '确认',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      await markGiftTaken(gift.id)
+      await reload()
+    },
+  })
+}
 
 function confirmDelete(gift: Gift): void {
   dialog.warning({

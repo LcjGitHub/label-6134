@@ -34,6 +34,12 @@ export async function deleteGift(id: number): Promise<void> {
   await api.delete(`/gifts/${id}`)
 }
 
+/** 快捷标记为已取走 */
+export async function markGiftTaken(id: number): Promise<Gift> {
+  const { data } = await api.put<Gift>(`/gifts/${id}/mark-taken`)
+  return data
+}
+
 /** 获取赠送统计数据 */
 export async function fetchGiftStats(): Promise<GiftStats> {
   const { data } = await api.get<GiftStats>('/stats/gifts')
