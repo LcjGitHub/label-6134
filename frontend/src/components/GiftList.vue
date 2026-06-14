@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, h, onMounted, ref } from 'vue'
+import { computed, h, onMounted, ref, watch } from 'vue'
 import { useAsyncState } from '@vueuse/core'
 import { format, parseISO } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
-import type { DataTableColumns } from 'naive-ui'
-import { NButton, NDescriptions, NDescriptionsItem, NModal, useDialog } from 'naive-ui'
-import { deleteGift, fetchGifts } from '../api/gift'
+import type { DataTableColumns, SelectOption } from 'naive-ui'
+import { NButton, NDescriptions, NDescriptionsItem, NModal, NSpace, useDialog } from 'naive-ui'
+import { deleteGift, fetchGifts, type GiftQueryParams } from '../api/gift'
 import type { Gift } from '../types/gift'
 
 const emit = defineEmits<{
@@ -16,12 +16,41 @@ const emit = defineEmits<{
 
 const dialog = useDialog()
 
+const searchKeyword = ref('')
+const isTakenFilter = ref<number | ''>('')
+
+const isTakenOptions: SelectOption[] = [
+  { label: '全部', value: '' },
+  { label: '已取走', value: 1 },
+  { label: '待取走', value: 0 },
+]
+
+async function loadGifts(): Promise<Gift[]> {
+  const params: GiftQueryParams = {}
+  if (searchKeyword.value.trim()) {
+    params.item_name = searchKeyword.value.trim()
+  }
+  if (isTakenFilter.value !== '') {
+    params.is_taken = isTakenFilter.value
+  }
+  return await fetchGifts(params)
+}
+
 const {
   state: gifts,
   isLoading,
   error,
   execute: reload,
-} = useAsyncState(fetchGifts, [], { immediate: false })
+} = useAsyncState(loadGifts, [], { immediate: false })
+
+watch([searchKeyword, isTakenFilter], () => {
+  reload()
+})
+
+function resetFilters(): void {
+  searchKeyword.value = ''
+  isTakenFilter.value = ''
+}
 
 const detailVisible = ref(false)
 const currentGift = ref<Gift | null>(null)
@@ -148,6 +177,25 @@ defineExpose({ reload })
       无法获取赠送记录，请确认后端服务已启动（端口 6000）。
     </n-alert>
 
+    <n-space style="margin-bottom: 16px" align="center">
+      <span class="filter-label">物品名：</span>
+      <n-input
+        v-model:value="searchKeyword"
+        placeholder="请输入物品名关键字"
+        clearable
+        style="width: 220px"
+        size="small"
+      />
+      <span class="filter-label">取走状态：</span>
+      <n-select
+        v-model:value="isTakenFilter"
+        :options="isTakenOptions"
+        style="width: 140px"
+        size="small"
+      />
+      <n-button size="small" @click="resetFilters">重置</n-button>
+    </n-space>
+
     <n-data-table
       :columns="columns"
       :data="gifts"
@@ -240,5 +288,10 @@ defineExpose({ reload })
 .detail-footer {
   display: flex;
   justify-content: flex-end;
+}
+
+.filter-label {
+  font-size: 14px;
+  color: #666;
 }
 </style>

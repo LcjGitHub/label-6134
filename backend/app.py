@@ -347,14 +347,32 @@ def delete_category(cat_id: int):
 def list_gifts():
     conn = get_db()
     try:
-        rows = conn.execute(
-            """
+        item_name = request.args.get("item_name", "").strip()
+        is_taken_param = request.args.get("is_taken")
+
+        query = """
             SELECT g.*, c.name AS category_name
             FROM gifts g
             LEFT JOIN categories c ON g.category_id = c.id
-            ORDER BY g.gift_date DESC, g.id DESC
-            """
-        ).fetchall()
+            WHERE 1=1
+        """
+        params = []
+
+        if item_name:
+            query += " AND g.item_name LIKE ?"
+            params.append(f"%{item_name}%")
+
+        if is_taken_param is not None and is_taken_param != "":
+            try:
+                is_taken_val = int(is_taken_param)
+                query += " AND g.is_taken = ?"
+                params.append(is_taken_val)
+            except (TypeError, ValueError):
+                pass
+
+        query += " ORDER BY g.gift_date DESC, g.id DESC"
+
+        rows = conn.execute(query, params).fetchall()
         return jsonify([row_to_gift(r) for r in rows])
     finally:
         conn.close()

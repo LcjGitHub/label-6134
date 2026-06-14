@@ -6,9 +6,14 @@ const api = axios.create({
   timeout: 10000,
 })
 
+export interface GiftQueryParams {
+  item_name?: string
+  is_taken?: number | ''
+}
+
 /** 获取全部赠送记录 */
-export async function fetchGifts(): Promise<Gift[]> {
-  const { data } = await api.get<Gift[]>('/gifts')
+export async function fetchGifts(params?: GiftQueryParams): Promise<Gift[]> {
+  const { data } = await api.get<Gift[]>('/gifts', { params })
   return data
 }
 
