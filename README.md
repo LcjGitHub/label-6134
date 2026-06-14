@@ -150,6 +150,54 @@ pip install -r requirements.txt
 bash ../scripts/health_check.sh 6000
 ```
 
+### 后端自动化测试
+
+项目使用 `pytest` 作为轻量级单元测试框架，测试文件位于 `backend/tests/` 目录。测试使用独立临时数据库文件，不会污染正式数据。
+
+**运行所有测试：**
+```bash
+cd backend
+pip install -r requirements.txt
+python -m pytest tests/ -v
+```
+
+**运行指定测试文件：**
+```bash
+cd backend
+python -m pytest tests/test_gifts.py -v
+```
+
+**运行指定测试类：**
+```bash
+cd backend
+python -m pytest tests/test_gifts.py::TestListGifts -v
+```
+
+**运行指定测试用例：**
+```bash
+cd backend
+python -m pytest tests/test_gifts.py::TestListGifts::test_filter_by_item_name -v
+```
+
+**生成测试覆盖率报告：**
+```bash
+cd backend
+pip install pytest-cov
+python -m pytest tests/ --cov=. --cov-report=html
+```
+
+**测试覆盖场景：**
+
+| 测试类 | 测试用例 | 说明 |
+|--------|----------|------|
+| `TestListGifts` | `test_filter_by_item_name` | 列表查询带物品名筛选 |
+| `TestCreateGift` | `test_create_phone_empty` | 新建记录联系电话为空校验失败 |
+| `TestCreateGift` | `test_create_phone_invalid_length` | 新建记录联系电话长度错误校验失败 |
+| `TestCreateGift` | `test_create_phone_non_digits` | 新建记录联系电话含非数字校验失败 |
+| `TestMarkGiftTaken` | `test_mark_taken_success` | 快捷标记已取走成功 |
+| `TestMarkGiftTaken` | `test_mark_taken_duplicate` | 重复标记返回错误 |
+| `TestMarkGiftTaken` | `test_mark_taken_idempotent_check` | 先成功标记后重复标记返回错误 |
+
 **前端：**
 ```bash
 cd frontend

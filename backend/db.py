@@ -1,9 +1,10 @@
+import os
 import sqlite3
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
-DB_PATH = DATA_DIR / "gift.db"
+DB_PATH = Path(os.environ.get("GIFT_DB_PATH", str(DATA_DIR / "gift.db")))
 
 RESERVATION_STATUS_PENDING = "pending"
 RESERVATION_STATUS_CONFIRMED = "confirmed"
