@@ -61,6 +61,18 @@ def row_to_note(row: sqlite3.Row) -> dict:
     }
 
 
+def row_to_volunteer(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "phone": row["phone"],
+        "service_time": row["service_time"],
+        "skill_category": row["skill_category"],
+        "register_date": row["register_date"],
+        "is_active": bool(row["is_active"]),
+    }
+
+
 def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     conn = get_db()
@@ -114,6 +126,20 @@ def init_db() -> None:
                 content TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (gift_id) REFERENCES gifts(id) ON DELETE CASCADE
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS volunteers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                phone TEXT NOT NULL,
+                service_time TEXT NOT NULL DEFAULT '',
+                skill_category TEXT NOT NULL DEFAULT '',
+                register_date TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1
             )
             """
         )
@@ -231,6 +257,24 @@ def init_db() -> None:
                 VALUES (?, ?, ?)
                 """,
                 seed_notes,
+            )
+
+        volunteer_count = conn.execute("SELECT COUNT(*) FROM volunteers").fetchone()[0]
+        if volunteer_count == 0:
+            seed_volunteers = [
+                ("张建国", "13900139001", "工作日晚上、周六全天", "家电维修、技术支持", "2026-01-15", 1),
+                ("李美玲", "13900139002", "周末全天", "儿童辅导、活动组织", "2026-02-10", 1),
+                ("王大伟", "13900139003", "周六下午、周日上午", "物资搬运、场地布置", "2026-02-20", 1),
+                ("陈丽华", "13900139004", "工作日上午", "医疗咨询、健康讲座", "2026-03-01", 0),
+                ("刘志强", "13900139005", "周末全天、工作日晚间", "法律咨询、纠纷调解", "2026-03-08", 1),
+            ]
+            conn.executemany(
+                """
+                INSERT INTO volunteers
+                    (name, phone, service_time, skill_category, register_date, is_active)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                seed_volunteers,
             )
         conn.commit()
     finally:

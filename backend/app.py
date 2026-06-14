@@ -4,7 +4,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 
 from db import init_db
-from routes import categories_bp, gifts_bp, reservations_bp, notes_bp, stats_bp
+from routes import categories_bp, gifts_bp, reservations_bp, notes_bp, stats_bp, volunteers_bp
 
 app = Flask(__name__)
 CORS(app)
@@ -14,6 +14,7 @@ app.register_blueprint(gifts_bp)
 app.register_blueprint(reservations_bp)
 app.register_blueprint(notes_bp)
 app.register_blueprint(stats_bp)
+app.register_blueprint(volunteers_bp)
 
 
 @app.route("/api/health", methods=["GET"])

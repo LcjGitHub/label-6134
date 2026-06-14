@@ -9,12 +9,15 @@ import ReservationList from './components/ReservationList.vue'
 import ReservationFormModal from './components/ReservationFormModal.vue'
 import GiftStats from './components/GiftStats.vue'
 import NoteModal from './components/NoteModal.vue'
+import VolunteerList from './components/VolunteerList.vue'
+import VolunteerFormModal from './components/VolunteerFormModal.vue'
 import type { Gift } from './types/gift'
 import type { Category } from './types/category'
+import type { Volunteer } from './types/volunteer'
 
 const message = useMessage()
 
-const activeTab = ref<'gifts' | 'categories' | 'reservations' | 'stats'>('gifts')
+const activeTab = ref<'gifts' | 'categories' | 'reservations' | 'volunteers' | 'stats'>('gifts')
 
 const giftListRef = ref<InstanceType<typeof GiftList> | null>(null)
 const showGiftModal = ref(false)
@@ -26,6 +29,10 @@ const editingCategory = ref<Category | null>(null)
 
 const reservationListRef = ref<InstanceType<typeof ReservationList> | null>(null)
 const showReservationModal = ref(false)
+
+const volunteerListRef = ref<InstanceType<typeof VolunteerList> | null>(null)
+const showVolunteerModal = ref(false)
+const editingVolunteer = ref<Volunteer | null>(null)
 
 const noteModalVisible = ref(false)
 const noteModalGiftId = ref<number | null>(null)
@@ -93,6 +100,28 @@ function handleReservationDeleted(): void {
   message.success('预约已取消')
 }
 
+function handleCreateVolunteer(): void {
+  editingVolunteer.value = null
+  showVolunteerModal.value = true
+}
+
+function handleEditVolunteer(volunteer: Volunteer): void {
+  editingVolunteer.value = volunteer
+  showVolunteerModal.value = true
+}
+
+function handleVolunteerSaved(): void {
+  const isEdit = editingVolunteer.value !== null
+  showVolunteerModal.value = false
+  volunteerListRef.value?.reload()
+  message.success(isEdit ? '志愿者已更新' : '志愿者已创建')
+}
+
+function handleVolunteerDeleted(): void {
+  volunteerListRef.value?.reload()
+  message.success('志愿者已删除')
+}
+
 function handleViewNotes(gift: Gift): void {
   noteModalGiftId.value = gift.id
   noteModalItemName.value = gift.item_name
@@ -140,6 +169,13 @@ watch(activeTab, (newTab) => {
       >
         新增预约
       </n-button>
+      <n-button
+        v-else-if="activeTab === 'volunteers'"
+        type="primary"
+        @click="handleCreateVolunteer"
+      >
+        新增志愿者
+      </n-button>
     </header>
 
     <main class="page-main">
@@ -165,6 +201,13 @@ watch(activeTab, (newTab) => {
             @deleted="handleReservationDeleted"
           />
         </n-tab-pane>
+        <n-tab-pane name="volunteers" tab="志愿者登记">
+          <VolunteerList
+            ref="volunteerListRef"
+            @edit="handleEditVolunteer"
+            @deleted="handleVolunteerDeleted"
+          />
+        </n-tab-pane>
         <n-tab-pane name="stats" tab="统计概览">
           <GiftStats :key="statsKey" />
         </n-tab-pane>
@@ -186,6 +229,12 @@ watch(activeTab, (newTab) => {
     <ReservationFormModal
       v-model:show="showReservationModal"
       @saved="handleReservationSaved"
+    />
+
+    <VolunteerFormModal
+      v-model:show="showVolunteerModal"
+      :volunteer="editingVolunteer"
+      @saved="handleVolunteerSaved"
     />
 
     <NoteModal
