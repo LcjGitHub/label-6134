@@ -33,3 +33,9 @@ export interface GiftStats {
   pending_count: number
   monthly_stats: MonthlyStat[]
 }
+
+export interface GiftSummary {
+  total_count: number
+  taken_count: number
+  pending_count: number
+}

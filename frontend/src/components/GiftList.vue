@@ -7,6 +7,7 @@ import type { DataTableColumns, SelectOption } from 'naive-ui'
 import { NButton, NDescriptions, NDescriptionsItem, NModal, NSpace, useDialog, useMessage } from 'naive-ui'
 import { deleteGift, fetchGifts, markGiftTaken, type GiftQueryParams } from '../api/gift'
 import type { Gift } from '../types/gift'
+import GiftSummaryCards from './GiftSummaryCards.vue'
 
 const emit = defineEmits<{
   edit: [gift: Gift]
@@ -16,6 +17,8 @@ const emit = defineEmits<{
 
 const dialog = useDialog()
 const message = useMessage()
+
+const summaryRef = ref<InstanceType<typeof GiftSummaryCards> | null>(null)
 
 const searchKeyword = ref('')
 const isTakenFilter = ref<number | ''>('')
@@ -41,8 +44,15 @@ const {
   state: gifts,
   isLoading,
   error,
-  execute: reload,
+  execute: reloadList,
 } = useAsyncState(loadGifts, [], { immediate: false })
+
+async function reload(): Promise<void> {
+  await Promise.all([
+    reloadList(),
+    summaryRef.value?.reload(),
+  ])
+}
 
 watchDebounced(searchKeyword, () => {
   reload()
@@ -216,6 +226,8 @@ defineExpose({ reload })
     <n-alert v-if="error" type="error" title="加载失败" style="margin-bottom: 16px">
       无法获取赠送记录，请确认后端服务已启动（端口 6000）。
     </n-alert>
+
+    <GiftSummaryCards ref="summaryRef" />
 
     <n-space style="margin-bottom: 16px" align="center">
       <span class="filter-label">物品名：</span>

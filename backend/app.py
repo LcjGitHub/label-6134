@@ -580,6 +580,25 @@ def delete_gift(gift_id: int):
         conn.close()
 
 
+@app.route("/api/gifts/summary", methods=["GET"])
+def get_gift_summary():
+    conn = get_db()
+    try:
+        total_count = conn.execute("SELECT COUNT(*) FROM gifts").fetchone()[0]
+        taken_count = conn.execute(
+            "SELECT COUNT(*) FROM gifts WHERE is_taken = 1"
+        ).fetchone()[0]
+        pending_count = total_count - taken_count
+
+        return jsonify({
+            "total_count": total_count,
+            "taken_count": taken_count,
+            "pending_count": pending_count,
+        })
+    finally:
+        conn.close()
+
+
 # ----------------------------- Reservations API -----------------------------
 
 @app.route("/api/reservations", methods=["GET"])

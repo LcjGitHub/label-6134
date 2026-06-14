@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Gift, GiftFormData, GiftStats } from '../types/gift'
+import type { Gift, GiftFormData, GiftStats, GiftSummary } from '../types/gift'
 
 const api = axios.create({
   baseURL: '/api',
@@ -43,5 +43,11 @@ export async function markGiftTaken(id: number): Promise<Gift> {
 /** 获取赠送统计数据 */
 export async function fetchGiftStats(): Promise<GiftStats> {
   const { data } = await api.get<GiftStats>('/stats/gifts')
+  return data
+}
+
+/** 获取轻量汇总统计（总记录数、已取走数、待取走数） */
+export async function fetchGiftSummary(): Promise<GiftSummary> {
+  const { data } = await api.get<GiftSummary>('/gifts/summary')
   return data
 }
